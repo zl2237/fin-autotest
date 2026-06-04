@@ -1,0 +1,66 @@
+stages:
+  - lint
+  - smoke_test
+  - notify
+
+# ============================================================
+# ① lint — 代码检查
+# ============================================================
+lint:
+  stage: lint
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
+  before_script:
+    - python3 -m pip install flake8 --quiet --break-system-packages
+  script:
+    - python3 -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+  tags:
+    - python
+
+# ============================================================
+# ② smoke_test — 冒烟测试
+# ============================================================
+smoke_test:
+  stage: smoke_test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
+  before_script:
+    - python3 -m pip install -r requirements.txt --quiet --break-system-packages
+  script:
+    - python3 -m pytest testcases/ -v --tb=short -m order --alluredir report/allure-results
+  after_script:
+    - echo "smoke_test done"
+  artifacts:
+    when: always
+    paths:
+      - report/allure-results/
+    expire_in: 7 days
+  needs:
+    - lint
+  tags:
+    - python
+
+# ============================================================
+# ③ notify — 企微通知
+# ============================================================
+notify:
+  stage: notify
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
+  script:
+    - |
+      if [ -f "notify.py" ]; then
+        python3 notify.py
+      else
+        echo "notify.py not found, skipping..."
+      fi
+  needs:
+    - smoke_test
+  tags:
+    - python

@@ -1,6 +1,9 @@
 """
 Testcases 层 - 订单接口测试用例
 包含全面的断言验证
+
+标记说明：
+  @pytest.mark.order - 订单相关测试（类级别统一标记）
 """
 import allure
 import pytest
@@ -15,34 +18,7 @@ from data.order_data import (
 )
 
 
-# ============================================================
-# 标记说明
-# ============================================================
-#
-# 测试类型标记：
-#   @pytest.mark.smoke        - 冒烟测试，核心功能快速验证
-#   @pytest.mark.regression   - 回归测试，完整功能验证
-#   @pytest.mark.full_flow    - 完整流程测试，端到端
-#
-# 订单操作标记：
-#   @pytest.mark.order_query      - 查询类测试
-#   @pytest.mark.order_create     - 新增订单测试
-#   @pytest.mark.order_distribute - 分发订单测试
-#   @pytest.mark.order_submit     - 提交订单测试
-#   @pytest.mark.order_workflow   - 完整流程测试
-#
-# 接口模块标记：
-#   @pytest.mark.entrusted_order  - 委托订单相关
-#   @pytest.mark.business_order   - 业务订单相关
-#   @pytest.mark.data_validation  - 数据验证相关
-#
-# 优先级标记：
-#   @pytest.mark.critical - P0，核心业务流程
-#   @pytest.mark.normal   - P1，重要功能
-#
-# ============================================================
-
-
+@pytest.mark.order
 class TestEntrustedOrder:
     """委托订单列表接口测试"""
 
@@ -50,11 +26,6 @@ class TestEntrustedOrder:
     @allure.story("委托订单列表查询")
     @allure.severity("critical")
     @allure.title("正常查询委托订单列表")
-    @pytest.mark.smoke
-    @pytest.mark.regression
-    @pytest.mark.order_query
-    @pytest.mark.entrusted_order
-    @pytest.mark.critical
     def test_entrust_order_normal(self):
         """正常查询委托订单列表"""
         with allure.step("发送委托订单列表查询请求"):
@@ -104,10 +75,6 @@ class TestEntrustedOrder:
     @allure.story("委托订单分页查询")
     @allure.severity("normal")
     @allure.title("分页查询委托订单")
-    @pytest.mark.regression
-    @pytest.mark.order_query
-    @pytest.mark.entrusted_order
-    @pytest.mark.normal
     @pytest.mark.parametrize("payload", OrderTestData.get_pagination_test_cases())
     def test_entrust_order_pagination(self, payload):
         """分页查询测试"""
@@ -132,10 +99,6 @@ class TestEntrustedOrder:
     @allure.story("委托订单排序")
     @allure.severity("normal")
     @allure.title("排序查询委托订单")
-    @pytest.mark.regression
-    @pytest.mark.order_query
-    @pytest.mark.entrusted_order
-    @pytest.mark.normal
     @pytest.mark.parametrize("sort_case", OrderTestData.get_sort_test_cases())
     def test_entrust_order_sort(self, sort_case):
         """排序测试"""
@@ -150,6 +113,7 @@ class TestEntrustedOrder:
             assert data.get("code") == 200, f"业务状态码异常: {data}"
 
 
+@pytest.mark.order
 class TestBusinessOrder:
     """业务订单接口测试"""
 
@@ -157,11 +121,6 @@ class TestBusinessOrder:
     @allure.story("业务订单列表查询")
     @allure.severity("critical")
     @allure.title("正常查询业务订单列表")
-    @pytest.mark.smoke
-    @pytest.mark.regression
-    @pytest.mark.order_query
-    @pytest.mark.business_order
-    @pytest.mark.critical
     def test_business_order_normal(self):
         """正常查询业务订单列表"""
         with allure.step("发送业务订单列表查询请求"):
@@ -208,10 +167,6 @@ class TestBusinessOrder:
     @allure.story("业务订单分页查询")
     @allure.severity("normal")
     @allure.title("分页查询业务订单")
-    @pytest.mark.regression
-    @pytest.mark.order_query
-    @pytest.mark.business_order
-    @pytest.mark.normal
     @pytest.mark.parametrize("payload", OrderTestData.get_pagination_test_cases())
     def test_business_order_pagination(self, payload):
         """分页查询测试"""
@@ -230,10 +185,6 @@ class TestBusinessOrder:
     @allure.story("业务订单排序")
     @allure.severity("normal")
     @allure.title("排序查询业务订单")
-    @pytest.mark.regression
-    @pytest.mark.order_query
-    @pytest.mark.business_order
-    @pytest.mark.normal
     @pytest.mark.parametrize("sort_case", OrderTestData.get_sort_test_cases())
     def test_business_order_sort(self, sort_case):
         """排序测试"""
@@ -248,16 +199,13 @@ class TestBusinessOrder:
             assert data.get("code") == 200, f"业务状态码异常: {data}"
 
 
+@pytest.mark.order
 class TestOrderDataValidation:
     """订单数据验证测试 - 深度验证返回数据"""
 
     @allure.feature("数据验证")
     @allure.story("订单数据完整性")
     @allure.severity("normal")
-    @pytest.mark.regression
-    @pytest.mark.order_query
-    @pytest.mark.data_validation
-    @pytest.mark.normal
     def test_entrust_order_data_integrity(self):
         """验证委托订单数据完整性"""
         resp = OrderApi.get_entrust_order_list(page_no=1, page_size=5)
@@ -280,10 +228,6 @@ class TestOrderDataValidation:
     @allure.feature("数据验证")
     @allure.story("业务订单数据完整性")
     @allure.severity("normal")
-    @pytest.mark.regression
-    @pytest.mark.order_query
-    @pytest.mark.data_validation
-    @pytest.mark.normal
     def test_business_order_data_integrity(self):
         """验证业务订单数据完整性"""
         resp = OrderApi.get_business_order_list(page_no=1, page_size=5)
@@ -304,6 +248,7 @@ class TestOrderDataValidation:
                                 f"订单 {i+1} 的 {key} 字段不应为 None"
 
 
+@pytest.mark.order
 class TestAddOrder:
     """新增订单接口测试"""
 
@@ -311,10 +256,6 @@ class TestAddOrder:
     @allure.story("新增委托订单")
     @allure.severity("critical")
     @allure.title("新增委托订单")
-    @pytest.mark.smoke
-    @pytest.mark.regression
-    @pytest.mark.order_create
-    @pytest.mark.critical
     def test_add_order_normal(self):
         """正常新增委托订单"""
         bl_no = generate_bl_no()
@@ -341,6 +282,7 @@ class TestAddOrder:
             assert "data" in data, "响应缺少 data 字段"
 
 
+@pytest.mark.order
 class TestAddAndDistribute:
     """新增订单并分发流程测试"""
 
@@ -348,10 +290,6 @@ class TestAddAndDistribute:
     @allure.story("新增委托订单")
     @allure.severity("critical")
     @allure.title("新增委托订单")
-    @pytest.mark.smoke
-    @pytest.mark.regression
-    @pytest.mark.order_create
-    @pytest.mark.critical
     def test_add_order_only(self):
         """仅新增订单（不分发）- 验证新增功能正常"""
         bl_no = generate_bl_no()
@@ -370,9 +308,6 @@ class TestAddAndDistribute:
     @allure.story("订单分发验证")
     @allure.severity("critical")
     @allure.title("订单分发 - 使用不同提单号")
-    @pytest.mark.regression
-    @pytest.mark.order_distribute
-    @pytest.mark.critical
     def test_distribute_with_different_bl_no(self):
         """分发订单（使用新提单号）- 验证分发功能"""
         bl_no = generate_bl_no()
@@ -391,12 +326,6 @@ class TestAddAndDistribute:
     @allure.story("新增并分发订单")
     @allure.severity("critical")
     @allure.title("新增并分发完整流程")
-    @pytest.mark.smoke
-    @pytest.mark.regression
-    @pytest.mark.order_create
-    @pytest.mark.order_distribute
-    @pytest.mark.full_flow
-    @pytest.mark.critical
     def test_add_and_distribute_workflow(self):
         """完整流程：新增订单 -> 查询获取 order_id -> 分发"""
         bl_no = generate_bl_no()
@@ -445,9 +374,6 @@ class TestAddAndDistribute:
     @allure.feature("新增订单")
     @allure.story("提单号格式验证")
     @allure.severity("normal")
-    @pytest.mark.regression
-    @pytest.mark.order_create
-    @pytest.mark.normal
     def test_bl_no_format(self):
         """验证提单号格式"""
         bl_no = generate_bl_no()
@@ -463,10 +389,6 @@ class TestAddAndDistribute:
     @allure.feature("新增订单")
     @allure.story("新增订单数据验证")
     @allure.severity("normal")
-    @pytest.mark.regression
-    @pytest.mark.order_create
-    @pytest.mark.data_validation
-    @pytest.mark.normal
     def test_add_order_payload_structure(self):
         """验证新增订单请求数据结构"""
         bl_no = generate_bl_no()
@@ -492,6 +414,7 @@ class TestAddAndDistribute:
             assert "service_item" in supplier, "supplier 缺少 service_item"
 
 
+@pytest.mark.order
 class TestSubmitOrder:
     """订单提交接口测试"""
 
@@ -499,11 +422,6 @@ class TestSubmitOrder:
     @allure.story("提交订单")
     @allure.severity("critical")
     @allure.title("提交订单 - 完整流程")
-    @pytest.mark.smoke
-    @pytest.mark.regression
-    @pytest.mark.order_submit
-    @pytest.mark.full_flow
-    @pytest.mark.critical
     def test_submit_order_with_workflow(self):
         """新增 -> 按提单号查询 -> 分发 -> 提交 完整流程"""
         bl_no = generate_bl_no()
@@ -561,10 +479,6 @@ class TestSubmitOrder:
     @allure.feature("订单提交")
     @allure.story("提交订单数据验证")
     @allure.severity("normal")
-    @pytest.mark.regression
-    @pytest.mark.order_submit
-    @pytest.mark.data_validation
-    @pytest.mark.normal
     def test_submit_order_payload_structure(self):
         """验证提交订单请求数据结构"""
         bl_no = generate_bl_no()
@@ -589,6 +503,7 @@ class TestSubmitOrder:
             assert "status" in payload, "缺少 status"
 
 
+@pytest.mark.order
 class TestFullWorkflow:
     """完整订单流程测试"""
 
@@ -596,11 +511,6 @@ class TestFullWorkflow:
     @allure.story("新增-按提单号查询-分发")
     @allure.severity("critical")
     @allure.title("完整流程：新增 -> 按提单号查询 -> 分发")
-    @pytest.mark.smoke
-    @pytest.mark.regression
-    @pytest.mark.order_workflow
-    @pytest.mark.full_flow
-    @pytest.mark.critical
     def test_full_order_workflow(self):
         """完整流程测试：新增订单 -> 按提单号查询 -> 分发"""
         import time
@@ -679,11 +589,6 @@ class TestFullWorkflow:
     @allure.story("新增-查询-分发-提交")
     @allure.severity("critical")
     @allure.title("完整流程：新增 -> 查询 -> 分发 -> 提交（待后端确认提交逻辑）")
-    @pytest.mark.regression
-    @pytest.mark.order_workflow
-    @pytest.mark.order_submit
-    @pytest.mark.full_flow
-    @pytest.mark.critical
     def test_full_workflow_with_submit(self):
         """完整流程测试（含提交）- 注意：提交接口可能需要额外的业务参数"""
         import time
