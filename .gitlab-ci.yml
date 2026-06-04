@@ -57,8 +57,6 @@ allure_report:
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
   script:
     - |
-      export ALLURE_HOME="/opt/allure-2.32.0"
-      export PATH="$ALLURE_HOME/bin:$PATH"
       echo "Generating Allure report..."
       allure generate report/allure-results -o report/allure-report --clean
       echo "Allure report generated successfully"
