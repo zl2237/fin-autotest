@@ -101,7 +101,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
 
 
 def _format_case(report):
-    markers = [mark.name for mark in report.keywords if not mark.startswith("_")]
+    markers = [m for m in report.keywords if not m.startswith("_")] if isinstance(report.keywords, dict) else []
     message = ""
     if hasattr(report.longrepr, "message"):
         message = report.longrepr.message
