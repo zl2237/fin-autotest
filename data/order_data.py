@@ -216,7 +216,7 @@ class BaseOrderData:
         "main_sort": "易航道-易汇联-青岛易汇航-上海一帜",
         "policy_id": "296905601001193472",
         "policy_name": "陆旭阳多主体服务策略-自动匹配",
-        "policy_type": "JSZX",
+        "policy_type": "JSZ",
         "service_items": ["booking_space"],
         "business_type": "1",
         "trade_term": "",
