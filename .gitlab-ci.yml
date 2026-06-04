@@ -2,6 +2,7 @@ stages:
   - lint
   - smoke_test
   - report
+  - pages       # 把 pages 单独一个阶段，确保顺序执行
   - notify
 
 # ============================================================
@@ -14,7 +15,7 @@ lint:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
   before_script:
-    - python3 -m pip install flake8 --quiet --break-system-packages
+    - python3 -m pip install flake8 --break-system-packages
   script:
     - python3 -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
   tags:
@@ -30,16 +31,14 @@ smoke_test:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
   before_script:
-    - python3 -m pip install -r requirements.txt --quiet --break-system-packages
-    - python3 -m pip install allure-pytest --quiet --break-system-packages
+    - python3 -m pip install -r requirements.txt --break-system-packages
   script:
-    - python3 -m pytest testcases/ -v --tb=short -m order --alluredir report/allure-results
-  after_script:
-    - echo "smoke_test done"
+    - mkdir -p report/allure-results
+    - python3 -m pytest testcases/ -v -m order --alluredir report/allure-results
   artifacts:
     when: always
     paths:
-      - report/allure-results/
+      - report/
     expire_in: 7 days
   needs:
     - lint
@@ -47,7 +46,7 @@ smoke_test:
     - api
 
 # ============================================================
-# ③ report — 生成 Allure HTML 报告并部署到 GitLab Pages
+# ③ 生成 Allure HTML 报告
 # ============================================================
 allure_report:
   stage: report
@@ -56,41 +55,35 @@ allure_report:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
   script:
-    - |
-      echo "Generating Allure report..."
-      allure generate report/allure-results -o report/allure-report --clean
-      echo "Allure report generated successfully"
+    - allure generate report/allure-results -o report/allure-report --clean
   artifacts:
     when: always
     paths:
       - report/allure-report/
-    expire_in: 7 days
   needs:
     - smoke_test
   tags:
     - api
 
 # ============================================================
-# ④ pages — 部署 Allure 报告到 GitLab Pages
+# ④ 部署到 GitLab Pages（必须叫 pages）
 # ============================================================
 pages:
-  stage: report
+  stage: pages
   script:
     - mkdir -p public
-    - mv report/allure-report public/
+    - cp -r report/allure-report/* public/
   artifacts:
     paths:
       - public
     expire_in: 7 days
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
+  needs:
+    - allure_report
   tags:
     - api
 
 # ============================================================
-# ⑤ notify — 企微通知
+# ⑤ 企微通知（自动带上 Pages 报告链接）
 # ============================================================
 notify:
   stage: notify
@@ -101,7 +94,7 @@ notify:
       if [ -f "notify.py" ]; then
         python3 notify.py
       else
-        echo "notify.py not found, skipping..."
+        echo "notify.py 不存在，跳过通知"
       fi
   needs:
     - pages
