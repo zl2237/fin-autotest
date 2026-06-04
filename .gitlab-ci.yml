@@ -1,6 +1,7 @@
 stages:
   - lint
   - smoke_test
+  - report
   - notify
 
 # ============================================================
@@ -30,6 +31,7 @@ smoke_test:
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
   before_script:
     - python3 -m pip install -r requirements.txt --quiet --break-system-packages
+    - python3 -m pip install allure-pytest --quiet --break-system-packages
   script:
     - python3 -m pytest testcases/ -v --tb=short -m order --alluredir report/allure-results
   after_script:
@@ -45,14 +47,55 @@ smoke_test:
     - api
 
 # ============================================================
-# ③ notify — 企微通知
+# ③ report — 生成 Allure HTML 报告并部署到 GitLab Pages
 # ============================================================
-notify:
-  stage: notify
+allure_report:
+  stage: report
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
+  before_script:
+    - python3 -m pip install allure-pytest --quiet --break-system-packages
+  script:
+    - echo "Generating Allure report..."
+    - allure generate report/allure-results -o report/allure-report --clean
+    - echo "Allure report generated successfully"
+  artifacts:
+    when: always
+    paths:
+      - report/allure-report/
+    expire_in: 7 days
+  needs:
+    - smoke_test
+  tags:
+    - api
+
+# ============================================================
+# ④ pages — 部署 Allure 报告到 GitLab Pages
+# ============================================================
+pages:
+  stage: report
+  script:
+    - mv report/allure-report public/
+  artifacts:
+    paths:
+      - public
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
+  tags:
+    - api
+
+# ============================================================
+# ⑤ notify — 企微通知
+# ============================================================
+notify:
+  stage: notify
+  variables:
+    ALLURE_REPORT_URL: "$CI_PAGES_URL/index.html"
   script:
     - |
       if [ -f "notify.py" ]; then
@@ -61,6 +104,6 @@ notify:
         echo "notify.py not found, skipping..."
       fi
   needs:
-    - smoke_test
+    - pages
   tags:
     - api

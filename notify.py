@@ -68,6 +68,7 @@ def build_message():
     runner = get_env("CI_RUNNER_DESCRIPTION", "N/A")
     project_url = get_env("CI_PROJECT_URL", "")
     project_name = get_env("CI_PROJECT_NAME", "")
+    allure_report_url = get_env("ALLURE_REPORT_URL", "").strip()
 
     commit_msg_short = truncate_commit(commit_msg, 60)
 
@@ -99,7 +100,7 @@ def build_message():
     }.get(overall_status, overall_status)
 
     lines = []
-    lines.append(f"## {status_icon} 自动化测试报告")
+    lines.append(f"## {status_icon} 接口自动化测试报告")
     lines.append("")
 
     if pipeline_url:
@@ -148,10 +149,14 @@ def build_message():
         lines.append("")
 
     links = []
+    if allure_report_url:
+        links.append(f"[📋 Allure 报告]({allure_report_url})")
     if pipeline_url:
         links.append(f"[查看流水线]({pipeline_url})")
     if project_url:
         links.append(f"[查看项目]({project_url})")
+    if allure_report_url:
+        links.append(f"[📋 查看Allure报告]({allure_report_url})")
     if links:
         lines.append(" ".join(links))
         lines.append("")
