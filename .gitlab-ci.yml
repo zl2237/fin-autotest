@@ -47,6 +47,7 @@ notify:
   script:
     - python3 notify.py
   needs:
-    - smoke_test
+    - job: smoke_test
+      optional: true
   tags:
     - api
