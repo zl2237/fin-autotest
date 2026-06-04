@@ -30,7 +30,7 @@ smoke_test:
     - python3 -m pip install -r requirements.txt --break-system-packages
   script:
     - mkdir -p report/allure-results
-    - python3 -m pytest testcases/ -m order --alluredir report/allure-results
+    - python3 -m pytest testcases/ -m order1 --alluredir report/allure-results
   artifacts:
     when: always
     paths:
@@ -48,7 +48,7 @@ allure_report:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
   script:
-    - allure generate report/allure-results -o report/allure-report --clean
+    - allure generate report/allure-results -o report/allure-report
   artifacts:
     when: always
     paths:
