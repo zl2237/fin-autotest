@@ -48,13 +48,16 @@ def global_login():
     log.info("===== 全局登录fixture结束 =====")
 
 
-# @pytest.hookimpl(tryfirst=True, hookwrapper=True)
-# def pytest_runtest_makereport(item, call):
-#     outcome = yield
-#     report = outcome.get_result()
-#     setattr(item, "rep_" + report.when, report)
+# ===================== 【修复版】钩子，不冲突 Allure =====================
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    # 这是【兼容版】，不会毁掉 Allure！
+    outcome = yield
+    report = outcome.get_result()
+    setattr(item, "rep_" + report.when, report)
 
 
+# ===================== 统计逻辑不变 =====================
 def pytest_sessionfinish(session, exitstatus):
     allure_dir = session.config.getoption("--alluredir")
     if not allure_dir:
