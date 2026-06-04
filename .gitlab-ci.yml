@@ -59,12 +59,25 @@ allure_report:
     - |
       echo "Installing Allure CLI..."
       if [ ! -d "/opt/allure-2.32.0" ]; then
-        echo "Downloading Allure CLI from mirror..."
-        wget -q https://cdn.jsdelivr.net/gh/allure-framework/allure2@2.32.0/allure-2.32.0.tgz -O /tmp/allure.tgz || \
-        wget -q https://repo.maven.org/maven2/io/qameta/allure/allure-commandline/2.32.0/allure-commandline-2.32.0.tgz -O /tmp/allure.tgz || \
-        wget -q https://mirrors.aliyun.com/github/allure-framework/allure2/releases/download/2.32.0/allure-2.32.0.tgz -O /tmp/allure.tgz
+        echo "Downloading Allure CLI..."
+        # 依次尝试三个镜像，curl 带超时，失败时打印错误码
+        DOWNLOADED=0
+        for URL in \
+          "https://cdn.jsdelivr.net/gh/allure-framework/allure2@2.32.0/allure-2.32.0.tgz" \
+          "https://repo.maven.org/maven2/io/qameta/allure/allure-commandline/2.32.0/allure-commandline-2.32.0.tgz" \
+          "https://mirrors.aliyun.com/github/allure-framework/allure2/releases/download/2.32.0/allure-2.32.0.tgz"
+        do
+          echo "Trying: $URL"
+          curl -fsSL --connect-timeout 30 --max-time 300 -o /tmp/allure.tgz "$URL" && DOWNLOADED=1 && break
+          echo "Failed (curl exit: $?), trying next mirror..."
+        done
+        if [ "$DOWNLOADED" -eq "0" ]; then
+          echo "ERROR: All mirrors failed to download Allure CLI"
+          exit 1
+        fi
         tar -xzf /tmp/allure.tgz -C /opt
         rm /tmp/allure.tgz
+        echo "Allure CLI installed successfully"
       fi
       export ALLURE_HOME="/opt/allure-2.32.0"
       export PATH="$ALLURE_HOME/bin:$PATH"
