@@ -97,6 +97,7 @@ notify:
         echo "notify.py 不存在，跳过通知"
       fi
   needs:
+    - smoke_test
     - pages
   tags:
     - api
