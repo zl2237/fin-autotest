@@ -22,7 +22,6 @@ pr_study/
 │   └── order.py                  # 订单相关接口封装
 │
 ├── config/                       # 配置层
-│   ├── __init__.py               # 包初始化
 │   └── settings.py               # 全局配置（加载 .env）
 │
 ├── core/                         # 核心模块
@@ -39,8 +38,11 @@ pr_study/
 │   ├── logger.py                 # 日志工具
 │   └── file_util.py              # 文件操作工具
 │
+├── .env.example                  # 环境变量模板
+├── .gitignore                    # Git 忽略配置
+├── .gitlab-ci.yml                # GitLab CI/CD 配置
 ├── conftest.py                   # pytest 全局配置（登录、报告生成）
-├── notify.py                      # 企微机器人通知脚本
+├── notify.py                     # 企微机器人通知脚本
 ├── pytest.ini                    # pytest 配置文件
 ├── requirements.txt              # Python 依赖
 └── README.md                     # 项目文档
@@ -98,8 +100,8 @@ cp .env.example .env
 ### 3. 运行测试
 
 ```bash
-# 运行全部测试
-pytest
+# 运行全部测试（需指定标记组合）
+pytest -m "entrust or business or validation or add or distribute or submit or workflow"
 
 # 运行指定测试类
 pytest testcases/test_order.py::TestEntrustedOrder
@@ -326,18 +328,26 @@ resp = OrderApi.submit_order(order_info, bl_no="TEST_BL_001")
 
 | 阶段 | 说明 |
 |------|------|
-| `lint` | flake8 代码检查 |
-| `smoke_test` | pytest 冒烟测试，结果写入 JSON |
-| `notify` | 调用 `notify.py` 发送企微通知 |
+| `lint` | flake8 代码检查（E9/F63/F7/F82 级别错误） |
+| `smoke_test` | pytest 执行全部标记用例，结果写入 JSON，artifacts 保留 7 天 |
+| `notify` | 调用 `notify.py` 发送企微机器人通知 |
+
+### 触发规则
+
+CI 在以下场景触发：
+- push 到任意分支
+- MR 合并请求
+- main / master 分支推送
+- feat / bugfix / hotfix 前缀分支推送
 
 ### 流程说明
 
 ```
-lint → smoke_test → notify
-  │        │           │
-  │        └── JSON ────┘
-  │                   (notify.py 读取)
-  └── 失败则中断流水线
+lint ──(失败则中断)── smoke_test ──(always)── notify
+                              │
+                              └── report/ (artifacts，7天)
+                                          │
+                                          └── notify.py 读取 test_summary.json
 ```
 
 ---
