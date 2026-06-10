@@ -10,6 +10,7 @@ from data.order_data import (
     SubmitOrderData,
     BaseOrderData,
     SubmitRequiredFields,
+    BookRealAmountData,
     generate_bl_no
 )
 from config.settings import ORDER_OPERATOR_CONFIG
@@ -24,6 +25,8 @@ class OrderApi:
     ADD_ORDER_URL = "/api/order/orderEntrust/orderAdd"          # 新增订单
     DISTRIBUTE_ORDER_URL = "/api/order/orderEntrust/orderAdd"   # 订单分发（与新增同一接口）
     SUBMIT_ORDER_URL = "/api/order/order/orderAdd"              # 订单提交
+    GENERATE_SUB_ORDER_URL = "/api/order/order/generateOrderSub"  # 生成子订单
+    BOOK_REAL_AMOUNT_URL = "/api/order/orderFee/bookRealAmountEdit"  # 订舱费用录费用
 
     @classmethod
     def get_entrust_order_list(
@@ -147,6 +150,36 @@ class OrderApi:
         return {}
 
     @classmethod
+    def get_container_from_order(cls, order_no: str = None, bl_no: str = None) -> List[Dict[str, Any]]:
+        """
+        从业务订单详情中提取箱信息（用于订单锁定审批）
+
+        Args:
+            order_no: 业务订单号（精确查询）
+            bl_no  : 提单号（备用）
+
+        Returns:
+            container 列表
+        """
+        resp = cls.get_business_order_list(order_no=order_no, bl_no=bl_no)
+        data = resp.json()
+        records = data.get("data", {}).get("data", [])
+        order = records[0] if records else {}
+        sub_list = order.get("data", []) if isinstance(order.get("data"), list) else []
+        container = []
+        for sub in sub_list:
+            for c in (sub.get("container") or []):
+                container.append({
+                    "order_container_id": c.get("order_container_id", ""),
+                    "box_type": c.get("box_type", ""),
+                    "box_num": c.get("box_num", ""),
+                    "box_no": c.get("box_no") or [""],
+                    "seal_number": c.get("seal_number") or [""],
+                    "sea_trans_unit_price": c.get("sea_trans_unit_price", 1),
+                })
+        return container
+
+    @classmethod
     def get_business_order_list(
         cls,
         page_no: int = 1,
@@ -267,6 +300,96 @@ class OrderApi:
             Response 对象
         """
         payload = SubmitOrderData.get_submit_payload(order_info, bl_no)
+        return http.post(cls.SUBMIT_ORDER_URL, json=payload)
+
+    @classmethod
+    def generate_sub_order(cls, order_id: str) -> Any:
+        """
+        生成子订单
+
+        Args:
+            order_id: 订单ID，来源于链路中使用的 order_id
+
+        Returns:
+            Response 对象
+        """
+        payload = {"order_id": order_id}
+        return http.post(cls.GENERATE_SUB_ORDER_URL, json=payload)
+
+    @classmethod
+    def book_real_amount(
+        cls,
+        order_id: str,
+        to_customer_fees: List[Dict[str, Any]] = None,
+        to_supplier_fees: List[Dict[str, Any]] = None,
+    ) -> Any:
+        """
+        订舱费用录费用接口
+
+        Args:
+            order_id         : 订单ID（必填）
+            to_customer_fees: 应收费用行列表（从 fee.yaml 读取后传入）
+            to_supplier_fees: 应付费用行列表（从 fee.yaml 读取后传入）
+
+        Returns:
+            Response 对象
+        """
+        payload = BookRealAmountData.get_payload(
+            order_id=order_id,
+            to_customer_fees=to_customer_fees,
+            to_supplier_fees=to_supplier_fees,
+        )
+        return http.post(cls.BOOK_REAL_AMOUNT_URL, json=payload)
+
+
+    @classmethod
+    def stash_order(cls, order_info: Dict[str, Any], bl_no: str = None) -> Any:
+        """
+        订单暂存（与提交接口相同，status=1）
+
+        Args:
+            order_info: 订单信息（需包含 order_id、order_no 等）
+            bl_no: 提单号
+
+        Returns:
+            Response 对象
+        """
+        payload = BaseOrderData.get_base_payload(bl_no)
+        payload.update(SubmitRequiredFields.get_submit_fields())
+
+        if bl_no:
+            payload["bl_no"] = bl_no
+        elif order_info.get("bl_no"):
+            payload["bl_no"] = order_info["bl_no"]
+
+        if order_info.get("order_id"):
+            payload["order_id"] = order_info["order_id"]
+        if order_info.get("order_no"):
+            payload["order_no"] = order_info["order_no"]
+
+        for field in [
+            "customer_category", "customer_tax_number", "customer_address_cn",
+            "customer_contact_phone", "customer_main_id", "customer_main_name",
+            "business_main_id", "business_main_name"
+        ]:
+            if order_info.get(field):
+                payload[field] = order_info[field]
+
+        supplier = SubmitRequiredFields.SUBMIT_SUPPLIER_TEMPLATE.copy()
+        if order_info.get("supplier") and order_info["supplier"]:
+            orig = order_info["supplier"][0]
+            supplier[0]["order_supplier_id"] = orig.get("order_supplier_id", "")
+            supplier[0]["order_id"] = orig.get("order_id", "")
+            supplier[0]["sys_upttime"] = orig.get("sys_upttime", "")
+
+        payload["supplier"] = supplier
+        payload["action"] = "stash"
+        payload["status"] = 1
+        payload["entrust_status"] = 2
+
+        if not payload.get("container"):
+            payload["container"] = SubmitRequiredFields.DEFAULT_CONTAINER
+
         return http.post(cls.SUBMIT_ORDER_URL, json=payload)
 
     @classmethod

@@ -1,0 +1,36 @@
+# ========================================================================
+# 费用配置 - 客户应收 + 供应商应付（各1条）
+# 对齐真实请求体
+# ========================================================================
+
+customer:
+  - cost_id: "17"
+    cost_name: "海运费"
+    settle_object_id: "62103"
+    subsidy_category: "0"
+    currency: "USD"
+    unit_price: "100.00"
+    unit: "box"
+    specs: "20GP"
+    num: 1
+    amount: "100.00"
+    discount_amount: "100.00"
+    discount_ratio: 100
+    remark: "测试备注"
+    fee_type: 0
+
+supplier:
+  - cost_id: "17"
+    cost_name: "海运费"
+    settle_object_id: "92102"
+    subsidy_category: "0"
+    currency: "USD"
+    unit_price: "100.00"
+    unit: "box"
+    specs: "20GP"
+    num: 1
+    amount: "100.00"
+    discount_amount: "100.00"
+    discount_ratio: 100
+    remark: "测试备注"
+    fee_type: 0
