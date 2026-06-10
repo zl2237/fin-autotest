@@ -1,6 +1,8 @@
 """
 审批流测试数据 - 按审批类型组织，后端生成审批单号
 """
+import time as _time
+import random as _random
 from typing import Any, Dict, List
 
 import os
@@ -45,6 +47,57 @@ class AuditFlowData:
         return cls._asset_push_payload(order_id)
 
     # =====================
+    # 订单锁定审批
+    # =====================
+
+    @classmethod
+    def _actual_cost_lock_payload(
+        cls,
+        order_id: str,
+        container: List[Dict[str, Any]],
+        policy_type: str = "JSZX",
+        business_type: str = "1",
+        business_no: str = "",
+    ) -> Dict[str, Any]:
+        """
+        发起订单锁定审批的请求体
+
+        Args:
+            order_id     : 业务订单ID
+            container    : 箱型信息列表（从 get_container_from_order 获取）
+            policy_type  : 策略类型
+            business_type: 业务类型
+            business_no  : 业务单号（前端自动生成，此处填空字符串由后端填充）
+        """
+        cfg = _AUDIT_CFG["actual_cost_lock"]
+        ts = str(int(_time.time() * 1000))
+        rand = str(_random.randint(1000, 9999))
+        code = f"ZDD{ts}{rand}"
+
+        enriched_container = []
+        for idx, c in enumerate(container):
+            enriched_container.append({
+                **c,
+                "_XID": f"row_{idx + 1}",
+            })
+
+        return {
+            "action": "submit",
+            "order_id": str(order_id),
+            "container": enriched_container,
+            "policy_type": policy_type,
+            "business_type": business_type,
+            "box_no_continue": cfg["box_no_continue"],
+            "check_self_fee_status": cfg["check_self_fee_status"],
+            "audit_msg": {
+                "title": cfg["audit_msg"]["title"],
+                "code": code,
+                "msgs": cfg["audit_msg"]["msgs"],
+            },
+            "select_node_user": cfg["select_node_user"],
+        }
+
+    # =====================
     # 查询待审批列表
     # =====================
 
@@ -55,6 +108,7 @@ class AuditFlowData:
         audit_status: List[str] = None,
         page_no: int = 1,
         page_size: int = 20,
+        active_tab: str = "examine_send",
     ) -> Dict[str, Any]:
         """查询审批列表的请求体"""
         if audit_status is None:
@@ -63,7 +117,7 @@ class AuditFlowData:
             "audit_status": audit_status,
             "page_no": page_no,
             "page_size": page_size,
-            "active_tab": "examine_send",
+            "active_tab": active_tab,
             "audit_type": [audit_type],
             "sort_field": "create_time",
             "sort_order": "desc",
@@ -114,4 +168,5 @@ class AuditFlowData:
 
 AuditFlowData._BUILDERS = {
     "assetPush": AuditFlowData._asset_push_payload,
+    "actualCostLockApplication": AuditFlowData._actual_cost_lock_payload,
 }

@@ -411,3 +411,90 @@ class TestLink7RecordAudit:
             assert '查询审批ID(1)' in step_names
             assert '审批通过(1)' in step_names
 
+
+# =============================================================================
+# 链路8：新建、分发、查询、暂存、提交、生成子订单、录费用、录审批、录订单锁定审批
+# =============================================================================
+@pytest.mark.link8
+class TestLink8OrderLock:
+    """链路8：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批"""
+
+    @allure.feature("链路测试")
+    @allure.story("链路8：新建、分发、查询、暂存、提交、生成子订单、录费用、录审批、录订单锁定审批")
+    @allure.severity("critical")
+    @allure.title("链路8：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批")
+    def test_link8_order_lock(self):
+        """验证：完整链路（包含资产推送审批 + 订单锁定审批），链路停在 order_lock 阶段"""
+        bl_no = 'LK8_' + __import__('time').strftime('%Y%m%d%H%M%S')
+
+        customer_fees = BookRealAmountData.get_customer_standard_fees()
+        supplier_fees = BookRealAmountData.get_supplier_standard_fees()
+
+        fee_config = {
+            'to_customer_fees': customer_fees,
+            'to_supplier_fees': supplier_fees,
+        }
+
+        with allure.step('执行链路（新建→分发→查询→暂存→提交→生成子订单→录费用→资产推送审批→订单锁定审批）'):
+            result = OrderWorkflow.full_flow(
+                stop_at='order_lock',
+                bl_no=bl_no,
+                fee_configs=[fee_config],
+            )
+
+        with allure.step('断言：新建成功'):
+            assert result['create_data']['code'] == 200, f'新建失败: {result["create_data"]}'
+
+        with allure.step('断言：分发成功'):
+            assert result['distribute_data']['code'] == 200, f'分发失败: {result["distribute_data"]}'
+
+        with allure.step('断言：生成子订单成功'):
+            gen_data = result['generate_sub_data']
+            assert gen_data['code'] == 200, f'生成子订单失败: {gen_data}'
+
+        with allure.step('断言：录费用成功'):
+            assert len(result['record_fee_results']) == 1, f'录费用应有1次调用，实际 {len(result["record_fee_results"])}'
+            fee_1 = result['record_fee_results'][0]
+            assert fee_1['resp'].status_code == 200, f'录费用 HTTP 状态码异常: {fee_1["resp"].status_code}'
+            assert fee_1['data']['code'] == 200, f'录费用失败: {fee_1["data"]}'
+
+        with allure.step('断言：资产推送审批成功'):
+            assert fee_1.get('audit_send_resp') is not None, '资产推送发起审批结果不应为空'
+            assert fee_1['audit_send_resp'].status_code == 200, f'发起审批 HTTP 状态码异常'
+            assert fee_1['audit_send_data']['code'] == 200, f'发起审批失败: {fee_1["audit_send_data"]}'
+            assert fee_1.get('audit_id'), 'audit_id 不应为空'
+            assert fee_1['audit_approve_resp'].status_code == 200, f'审批通过 HTTP 状态码异常'
+            assert fee_1['audit_approve_data']['code'] == 200, f'审批通过失败: {fee_1["audit_approve_data"]}'
+
+        with allure.step('断言：订单锁定审批成功'):
+            lock_result = result['order_lock_result']
+            assert lock_result is not None, '订单锁定审批结果不应为空'
+            assert lock_result['container'], '箱型信息不应为空'
+            assert lock_result['send_resp'].status_code == 200, f'订单锁定发起 HTTP 状态码异常'
+            assert lock_result['send_data']['code'] == 200, f'订单锁定发起失败: {lock_result["send_data"]}'
+            assert lock_result.get('audit_id'), '订单锁定 audit_id 不应为空'
+            assert lock_result['approve_resp'].status_code == 200, f'订单锁定审批通过 HTTP 状态码异常'
+            assert lock_result['approve_data']['code'] == 200, f'订单锁定审批通过失败: {lock_result["approve_data"]}'
+
+        with allure.step('断言：链路停在 order_lock 阶段'):
+            assert result['stop_at'] == 'order_lock'
+
+        with allure.step('断言：steps 记录完整'):
+            step_names = [s['name'] for s in result['steps']]
+            assert '新建订单' in step_names
+            assert '按提单号查询' in step_names
+            assert '分发订单' in step_names
+            assert '查询订单' in step_names
+            assert '暂存订单' in step_names
+            assert '查询订单（暂存后）' in step_names
+            assert '提交订单' in step_names
+            assert '查询订单（提交后）' in step_names
+            assert '生成子订单' in step_names
+            assert '录费用(1)' in step_names
+            assert '发起审批(1)' in step_names
+            assert '查询审批ID(1)' in step_names
+            assert '审批通过(1)' in step_names
+            assert '获取箱型信息' in step_names
+            assert '发起订单锁定审批' in step_names
+            assert '查询订单锁定审批ID' in step_names
+            assert '订单锁定审批通过' in step_names

@@ -10,3 +10,18 @@ asset_push:
   select_node_user:
     - node_sort: "0"
       user_id: "60"
+
+# ========================================================================
+# 审批流配置 - 订单锁定审批
+# ========================================================================
+
+actual_cost_lock:
+  audit_msg:
+    title: "业务订单ID"
+    msgs:
+      - "订单锁定"
+  select_node_user:
+    - node_sort: "0"
+      user_id: "60"
+  box_no_continue: false
+  check_self_fee_status: false

@@ -54,7 +54,7 @@ base_params:
   bulk: null
   sea_trans_cost: ""
   teu: ""
-  volume: "100"
+  volume: ""
   volume_desc: ""
   order_sn: ""
   status: "1"
@@ -90,9 +90,9 @@ submit_fields:
   ship_mark: "测试唛头"
   commodity: "测试品名"
   notes: "测试备注"
-  cargo_type: ""
+  cargo_type: "普货"
   packer: "测试包装锡纸"
-  bulk: null
+  bulk: "999"
   teu: ""
   volume: "1*AIR"
   volume_desc: "特种柜"

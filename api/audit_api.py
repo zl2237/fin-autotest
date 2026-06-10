@@ -1,7 +1,7 @@
 """
 API 层 - 审批流相关接口封装
 """
-from typing import Any
+from typing import Any, Dict, List
 
 from core.http_client import http
 from data.audit_data import AuditFlowData
@@ -14,7 +14,8 @@ class AuditApi:
     # =====================
 
     _SEND_URLS = {
-        "assetPush": "/api/order/orderFee/assetPush",  # 资产推送
+        "assetPush": "/api/order/orderFee/assetPush",                    # 资产推送
+        "actualCostLockApplication": "/api/order/orderFee/realAmountSubmit",  # 订单锁定
     }
 
     AUDIT_PAGE_URL = "/api/home/audit/auditPage"       # 查询审批列表
@@ -51,6 +52,38 @@ class AuditApi:
         """发起资产推送审批"""
         return cls.send_audit("assetPush", order_id)
 
+    @classmethod
+    def send_actual_cost_lock(
+        cls,
+        order_id: str,
+        container: List[Dict[str, Any]],
+        policy_type: str = "JSZX",
+        business_type: str = "1",
+        business_no: str = "",
+    ) -> Any:
+        """
+        发起订单锁定审批
+
+        Args:
+            order_id     : 业务订单ID
+            container    : 箱型信息列表（从 get_container_from_order 获取）
+            policy_type  : 策略类型
+            business_type: 业务类型
+            business_no  : 业务单号（后端自动生成，此处填空字符串）
+
+        Returns:
+            Response 对象
+        """
+        from data.audit_data import AuditFlowData
+        payload = AuditFlowData._actual_cost_lock_payload(
+            order_id=order_id,
+            container=container,
+            policy_type=policy_type,
+            business_type=business_type,
+            business_no=business_no,
+        )
+        return http.post(cls._SEND_URLS["actualCostLockApplication"], json=payload)
+
     # =====================
     # 查询审批列表
     # =====================
@@ -62,6 +95,7 @@ class AuditApi:
         audit_status: list = None,
         page_no: int = 1,
         page_size: int = 20,
+        active_tab: str = "examine_send",
     ) -> Any:
         """
         查询审批列表
@@ -71,6 +105,7 @@ class AuditApi:
             audit_status : 审批状态列表，默认 ['1']
             page_no     : 页码
             page_size   : 每页条数
+            active_tab  : 标签页，'examine_send'=我发起的，'examine_wait'=我审批的
 
         Returns:
             Response 对象
@@ -80,6 +115,7 @@ class AuditApi:
             audit_status=audit_status,
             page_no=page_no,
             page_size=page_size,
+            active_tab=active_tab,
         )
         return http.post(cls.AUDIT_PAGE_URL, json=payload)
 
