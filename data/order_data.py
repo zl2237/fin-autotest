@@ -29,6 +29,8 @@ def _load_yaml(name: str) -> Dict[str, Any]:
 
 _ORDER_CFG = _load_yaml("order")
 _FEE_CFG   = _load_yaml("fee")
+_NOTICE_CFG  = _load_yaml("fee_notice")
+_CONFIRM_CFG = _load_yaml("fee_confirm")
 
 
 # ========================================================================
@@ -74,14 +76,14 @@ class BookRealAmountData:
             "remark": None,
             "discount_ratio": int(config["discount_ratio"]),
             "discount_amount": str(config["discount_amount"]),
-            "discount_status": "0",
-            "policy_sub_status_name": "异常",
-            "pay_sync_status": 1,
+            "discount_status": _FEE_CFG["row_discount_status"],
+            "policy_sub_status_name": _FEE_CFG["row_policy_sub_status_name"],
+            "pay_sync_status": _FEE_CFG["row_pay_sync_status"],
             "unique_id": unique_id,
             "init_main_name": (
-                "上海一帜物流科技有限公司" if is_supplier else "青岛易航道物流科技有限公司"
+                _FEE_CFG["row_supplier_init_main_name"] if is_supplier else _FEE_CFG["row_customer_init_main_name"]
             ),
-            "main_name": None if is_supplier else "青岛易航道物流科技有限公司",
+            "main_name": None if is_supplier else _FEE_CFG["row_customer_init_main_name"],
             "rowIndex": row_index,
         }
         return row
@@ -98,22 +100,21 @@ class BookRealAmountData:
         if to_supplier_fees is None:
             to_supplier_fees = []
 
-        uid = str(uuid.uuid4())
-        customer_rows = [
-            cls.build_fee_row(cfg, "customer", i, uid)
-            for i, cfg in enumerate(to_customer_fees)
-        ]
-        supplier_rows = [
-            cls.build_fee_row(cfg, "supplier", i, uid)
-            for i, cfg in enumerate(to_supplier_fees)
-        ]
+        pair_count = min(len(to_customer_fees), len(to_supplier_fees))
+        customer_rows = []
+        supplier_rows = []
+
+        for i in range(pair_count):
+            pair_uid = str(uuid.uuid4())
+            customer_rows.append(cls.build_fee_row(to_customer_fees[i], "customer", i, pair_uid))
+            supplier_rows.append(cls.build_fee_row(to_supplier_fees[i], "supplier", i, pair_uid))
 
         return {
-            "action": "submit",
+            "action": _FEE_CFG["fee_action"],
             "order_id": str(order_id),
-            "discount_ratio": "",
-            "service_project": "booking_space",
-            "import_status": 0,
+            "discount_ratio": _FEE_CFG["fee_discount_ratio"],
+            "service_project": _FEE_CFG["fee_service_project"],
+            "import_status": _FEE_CFG["fee_import_status"],
             "to_customer": {"put_amount": {"standard_list": customer_rows}},
             "to_supplier": {"pay_amount": {"standard_list": supplier_rows}},
         }
@@ -410,3 +411,91 @@ class BusinessOrderData:
             "sort_order": self.sort_order,
             "params": self.params
         }
+
+
+# ========================================================================
+# 费用通知单 - 生成费用通知单接口 orderNotice
+# ========================================================================
+
+class FeeNoticeData:
+
+    @classmethod
+    def get_generate_payload(
+        cls,
+        order_id: str,
+        finance_ids: List[str] = None,
+        bank_ids: List[str] = None,
+        action: str = "submit",
+    ) -> Dict[str, Any]:
+        """
+        构建生成费用通知单的请求体
+
+        Args:
+            order_id    : 业务订单ID（从链路流程获取）
+            finance_ids : 费用ID列表（默认取 yaml 配置）
+            bank_ids    : 账户ID列表（默认取 yaml 配置）
+            action      : 操作类型
+
+        Returns:
+            请求体字典
+        """
+        return {
+            "action": action,
+            "order_id": str(order_id),
+            "finance_ids": finance_ids if finance_ids is not None else _NOTICE_CFG["finance_ids"],
+            "bank_ids": bank_ids if bank_ids is not None else _NOTICE_CFG["bank_ids"],
+        }
+
+    @classmethod
+    def get_default_finance_ids(cls) -> List[str]:
+        """默认费用ID列表"""
+        return _NOTICE_CFG["finance_ids"].copy()
+
+    @classmethod
+    def get_default_bank_ids(cls) -> List[str]:
+        """默认账户ID列表"""
+        return _NOTICE_CFG["bank_ids"].copy()
+
+
+# ========================================================================
+# 费用确认单 - 生成费用确认单接口 orderConfirmLoan
+# ========================================================================
+
+class FeeConfirmData:
+
+    @classmethod
+    def get_generate_payload(
+        cls,
+        order_id: str,
+        finance_ids: List[str] = None,
+        bank_ids: List[str] = None,
+        action: str = "submit",
+    ) -> Dict[str, Any]:
+        """
+        构建生成费用确认单的请求体
+
+        Args:
+            order_id    : 业务订单ID（从链路流程获取）
+            finance_ids : 费用ID列表（默认取 _CONFIRM_CFG 配置）
+            bank_ids    : 账户ID列表（默认取 _CONFIRM_CFG 配置）
+            action      : 操作类型
+
+        Returns:
+            请求体字典
+        """
+        return {
+            "action": action,
+            "order_id": str(order_id),
+            "finance_ids": finance_ids if finance_ids is not None else _CONFIRM_CFG["finance_ids"],
+            "bank_ids": bank_ids if bank_ids is not None else _CONFIRM_CFG["bank_ids"],
+        }
+
+    @classmethod
+    def get_default_finance_ids(cls) -> List[str]:
+        """默认费用ID列表"""
+        return _CONFIRM_CFG["finance_ids"].copy()
+
+    @classmethod
+    def get_default_bank_ids(cls) -> List[str]:
+        """默认账户ID列表"""
+        return _CONFIRM_CFG["bank_ids"].copy()

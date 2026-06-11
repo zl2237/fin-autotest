@@ -9,7 +9,7 @@ import allure
 from core.http_client import http
 from api.order import OrderApi
 from api.audit_api import AuditApi
-from data.order_data import generate_bl_no, BookRealAmountData
+from data.order_data import generate_bl_no, BookRealAmountData, FeeNoticeData, FeeConfirmData
 
 
 class OrderWorkflow:
@@ -275,6 +275,380 @@ class OrderWorkflow:
         return result
 
     @classmethod
+    def record_order_lock(
+        cls,
+        order_id: str,
+        bl_no: str = None,
+    ) -> Dict[str, Any]:
+        """
+        录订单锁定审批（发起审批 → 查询审批ID → 审批通过）
+
+        Args:
+            order_id: 业务订单ID
+            bl_no   : 提单号（用于查询 container）
+
+        Returns:
+            {
+                'order_id': str,
+                'container': [...],
+                'send_resp': Response,
+                'send_data': dict,
+                'query_resp': Response,
+                'query_data': dict,
+                'audit_id': str,
+                'approve_resp': Response,
+                'approve_data': dict,
+                'steps': [...],
+            }
+        """
+        result = {
+            'order_id': order_id,
+            'steps': [],
+        }
+
+        # 1) 从订单详情获取 container
+        with allure.step('获取箱型信息（用于订单锁定审批）'):
+            container = OrderApi.get_container_from_order(bl_no=bl_no)
+            if not container:
+                from data.order_data import SubmitRequiredFields
+                container = SubmitRequiredFields.DEFAULT_CONTAINER.copy()
+            result['container'] = container
+            result['steps'].append({
+                'name': '获取箱型信息',
+                'container_count': len(container),
+                'from_order': bool(OrderApi.get_container_from_order(bl_no=bl_no)),
+            })
+
+        # 2) 发起订单锁定审批
+        with allure.step('发起订单锁定审批'):
+            send_resp = AuditApi.send_actual_cost_lock(
+                order_id=order_id,
+                container=container,
+            )
+            send_data = send_resp.json()
+            result['send_resp'] = send_resp
+            result['send_data'] = send_data
+            result['steps'].append({
+                'name': '发起订单锁定审批',
+                'code': send_data.get('code'),
+                'msg': send_data.get('msg'),
+            })
+
+        # 3) 查询审批ID
+        with allure.step('查询订单锁定审批ID'):
+            query_resp = AuditApi.query_pending_audits(
+                audit_type='actualCostLockApplication',
+                audit_status=['1'],
+                page_no=1,
+                page_size=1,
+                active_tab='examine_wait',
+            )
+            query_data = query_resp.json()
+            records = query_data.get('data', {}).get('data', [])
+            first = records[0] if records else {}
+            audit_id = first.get('audit_id', '')
+            result['query_resp'] = query_resp
+            result['query_data'] = query_data
+            result['audit_id'] = audit_id
+            result['steps'].append({
+                'name': '查询订单锁定审批ID',
+                'code': query_data.get('code'),
+                'msg': query_data.get('msg'),
+                'audit_id': audit_id,
+            })
+
+        # 4) 审批通过
+        with allure.step('订单锁定审批通过'):
+            approve_resp = AuditApi.audit_execute(
+                audit_ids=[audit_id] if audit_id else [],
+                audit_status=2,
+            )
+            approve_data = approve_resp.json()
+            result['approve_resp'] = approve_resp
+            result['approve_data'] = approve_data
+            result['steps'].append({
+                'name': '订单锁定审批通过',
+                'code': approve_data.get('code'),
+                'msg': approve_data.get('msg'),
+            })
+
+        cls._attach_context(result)
+        return result
+
+    @classmethod
+    def record_generate_fee_notice(
+        cls,
+        order_id: str,
+        finance_ids: List[str] = None,
+        bank_ids: List[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        生成费用通知单（发起 → 响应结构断言）
+
+        Args:
+            order_id   : 业务订单ID（从链路流程获取）
+            finance_ids: 费用ID列表（默认取 FeeNoticeData 配置）
+            bank_ids   : 账户ID列表（默认取 FeeNoticeData 配置）
+
+        Returns:
+            {
+                'order_id': str,
+                'resp': Response,
+                'data': dict,
+                'file_info': dict,   # data.file_name
+                'steps': [...],
+            }
+        """
+        result = {
+            'order_id': order_id,
+            'steps': [],
+        }
+
+        with allure.step('生成费用通知单'):
+            resp = OrderApi.generate_fee_notice(
+                order_id=order_id,
+                finance_ids=finance_ids,
+                bank_ids=bank_ids,
+            )
+            data = resp.json()
+            result['resp'] = resp
+            result['data'] = data
+
+            # 提取 file_name（必定存在）
+            result['file_info'] = data.get('data', {}).get('file_name', {}) or {}
+
+            result['steps'].append({
+                'name': '生成费用通知单',
+                'code': data.get('code'),
+                'msg': data.get('msg'),
+            })
+
+        cls._attach_context(result)
+        return result
+
+    @classmethod
+    def record_generate_fee_confirm(
+        cls,
+        order_id: str,
+        finance_ids: List[str] = None,
+        bank_ids: List[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        生成费用确认单（发起 → 响应结构断言）
+
+        Args:
+            order_id   : 业务订单ID（从链路流程获取）
+            finance_ids: 费用ID列表（默认取 FeeConfirmData 配置）
+            bank_ids   : 账户ID列表（默认取 FeeConfirmData 配置）
+
+        Returns:
+            {
+                'order_id': str,
+                'resp': Response,
+                'data': dict,
+                'file_info': dict,   # data.file_name
+                'steps': [...],
+            }
+        """
+        result = {
+            'order_id': order_id,
+            'steps': [],
+        }
+
+        with allure.step('生成费用确认单'):
+            resp = OrderApi.generate_fee_confirm(
+                order_id=order_id,
+                finance_ids=finance_ids,
+                bank_ids=bank_ids,
+            )
+            data = resp.json()
+            result['resp'] = resp
+            result['data'] = data
+            result['file_info'] = data.get('data', {}).get('file_name', {}) or {}
+            result['steps'].append({
+                'name': '生成费用确认单',
+                'code': data.get('code'),
+                'msg': data.get('msg'),
+            })
+
+        cls._attach_context(result)
+        return result
+
+    @classmethod
+    def record_supplier_advance(
+        cls,
+        order_id: str,
+        bl_no: str,
+    ) -> Dict[str, Any]:
+        """
+        录供应商垫付申请审批（发起审批 → 查询审批ID → 审批通过）
+
+        Args:
+            order_id: 业务订单ID
+            bl_no   : 提单号（用于查询筛选）
+
+        Returns:
+            {
+                'order_id': str,
+                'send_resp': Response,
+                'send_data': dict,
+                'query_resp': Response,
+                'query_data': dict,
+                'audit_id': str,
+                'approve_resp': Response,
+                'approve_data': dict,
+                'steps': [...],
+            }
+        """
+        result = {
+            'order_id': order_id,
+            'steps': [],
+        }
+
+        # 1) 发起供应商垫付申请审批
+        with allure.step('发起供应商垫付申请审批'):
+            send_resp = AuditApi.send_add_special_payment_flag(order_id=order_id)
+            send_data = send_resp.json()
+            result['send_resp'] = send_resp
+            result['send_data'] = send_data
+            result['steps'].append({
+                'name': '发起供应商垫付申请审批',
+                'code': send_data.get('code'),
+                'msg': send_data.get('msg'),
+            })
+
+        # 2) 查询审批ID
+        with allure.step('查询供应商垫付申请审批ID'):
+            query_resp = AuditApi.query_pending_audits(
+                audit_type='addSpecialPaymentFlag',
+                audit_status=['1'],
+                page_no=1,
+                page_size=1,
+                active_tab='examine_wait',
+                bl_no=bl_no,
+                sort_field='expedite_num',
+                sort_order='desc',
+            )
+            query_data = query_resp.json()
+            records = query_data.get('data', {}).get('data', [])
+            first = records[0] if records else {}
+            audit_id = first.get('audit_id', '')
+            result['query_resp'] = query_resp
+            result['query_data'] = query_data
+            result['audit_id'] = audit_id
+            result['steps'].append({
+                'name': '查询供应商垫付申请审批ID',
+                'code': query_data.get('code'),
+                'msg': query_data.get('msg'),
+                'audit_id': audit_id,
+            })
+
+        # 3) 审批通过
+        with allure.step('供应商垫付申请审批通过'):
+            approve_resp = AuditApi.audit_execute(
+                audit_ids=[audit_id] if audit_id else [],
+                audit_status=2,
+            )
+            approve_data = approve_resp.json()
+            result['approve_resp'] = approve_resp
+            result['approve_data'] = approve_data
+            result['steps'].append({
+                'name': '供应商垫付申请审批通过',
+                'code': approve_data.get('code'),
+                'msg': approve_data.get('msg'),
+            })
+
+        cls._attach_context(result)
+        return result
+
+    @classmethod
+    def record_invoice_apply(
+        cls,
+        order_id: str,
+        bl_no: str,
+    ) -> Dict[str, Any]:
+        """
+        录未放款开票申请审批（发起审批 → 查询审批ID → 审批通过）
+
+        Args:
+            order_id: 业务订单ID
+            bl_no   : 提单号（用于查询筛选）
+
+        Returns:
+            {
+                'order_id': str,
+                'send_resp': Response,
+                'send_data': dict,
+                'query_resp': Response,
+                'query_data': dict,
+                'audit_id': str,
+                'approve_resp': Response,
+                'approve_data': dict,
+                'steps': [...],
+            }
+        """
+        result = {
+            'order_id': order_id,
+            'steps': [],
+        }
+
+        # 1) 发起未放款开票申请审批
+        with allure.step('发起未放款开票申请审批'):
+            send_resp = AuditApi.send_add_loan_before_invoice(order_id=order_id)
+            send_data = send_resp.json()
+            result['send_resp'] = send_resp
+            result['send_data'] = send_data
+            result['steps'].append({
+                'name': '发起未放款开票申请审批',
+                'code': send_data.get('code'),
+                'msg': send_data.get('msg'),
+            })
+
+        # 2) 查询审批ID
+        with allure.step('查询未放款开票申请审批ID'):
+            query_resp = AuditApi.query_pending_audits(
+                audit_type='addLoanBeforeInvoiceApply',
+                audit_status=['1'],
+                page_no=1,
+                page_size=1,
+                active_tab='examine_wait',
+                bl_no=bl_no,
+                sort_field='expedite_num',
+                sort_order='desc',
+            )
+            query_data = query_resp.json()
+            records = query_data.get('data', {}).get('data', [])
+            first = records[0] if records else {}
+            audit_id = first.get('audit_id', '')
+            result['query_resp'] = query_resp
+            result['query_data'] = query_data
+            result['audit_id'] = audit_id
+            result['steps'].append({
+                'name': '查询未放款开票申请审批ID',
+                'code': query_data.get('code'),
+                'msg': query_data.get('msg'),
+                'audit_id': audit_id,
+            })
+
+        # 3) 审批通过
+        with allure.step('未放款开票申请审批通过'):
+            approve_resp = AuditApi.audit_execute(
+                audit_ids=[audit_id] if audit_id else [],
+                audit_status=2,
+            )
+            approve_data = approve_resp.json()
+            result['approve_resp'] = approve_resp
+            result['approve_data'] = approve_data
+            result['steps'].append({
+                'name': '未放款开票申请审批通过',
+                'code': approve_data.get('code'),
+                'msg': approve_data.get('msg'),
+            })
+
+        cls._attach_context(result)
+        return result
+
+    @classmethod
     def record_fee(
         cls,
         order_id: str,
@@ -409,6 +783,11 @@ class OrderWorkflow:
                 - 'generate_sub_order' 新建 + 分发 + 查询 + 暂存 + 提交 + 生成子订单
                 - 'record_fee'         新建 + 分发 + 查询 + 暂存 + 提交 + 生成子订单 + 录费用
                 - 'record_audit'       新建 + 分发 + 查询 + 暂存 + 提交 + 生成子订单 + 录费用 + 资产推送审批
+                - 'order_lock'         新建 + 分发 + 查询 + 暂存 + 提交 + 生成子订单 + 录费用 + 资产推送审批 + 订单锁定审批
+                - 'invoice_apply'      新建 + 分发 + 查询 + 暂存 + 提交 + 生成子订单 + 录费用 + 资产推送审批 + 订单锁定审批 + 未放款开票申请审批
+                - 'supplier_advance'   新建 + 分发 + 查询 + 暂存 + 提交 + 生成子订单 + 录费用 + 资产推送审批 + 订单锁定审批 + 未放款开票申请审批 + 供应商垫付申请审批
+                - 'fee_notice'         新建 + 分发 + 查询 + 暂存 + 提交 + 生成子订单 + 录费用 + 资产推送审批 + 订单锁定审批 + 未放款开票申请审批 + 供应商垫付申请审批 + 生成费用通知单
+                - 'fee_confirm'        新建 + 分发 + 查询 + 暂存 + 提交 + 生成子订单 + 录费用 + 资产推送审批 + 订单锁定审批 + 未放款开票申请审批 + 供应商垫付申请审批 + 生成费用通知单 + 生成费用确认单
             skip_stash: 是否跳过暂存
             fee_configs: 录费用配置列表（stop_at='record_fee' 时使用）
 
@@ -540,7 +919,7 @@ class OrderWorkflow:
             })
 
         # Step 8: 生成子订单
-        if stop_at in ('generate_sub_order', 'record_fee', 'record_audit'):
+        if stop_at in ('generate_sub_order', 'record_fee', 'record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm'):
             with allure.step(f'[{stop_at}] Step7: 生成子订单'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -557,10 +936,10 @@ class OrderWorkflow:
                 })
 
         # Step 9: 录费用（含资产推送审计）
-        if stop_at in ('record_fee', 'record_audit'):
+        if stop_at in ('record_fee', 'record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm'):
             with allure.step(f'[{stop_at}] Step8: 录费用'):
                 order_id = after_submit_order.get('order_id')
-                audit_after = stop_at == 'record_audit'
+                audit_after = stop_at in ('record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm')
                 fee_result = cls.record_fee(
                     order_id=order_id,
                     fee_configs=fee_configs or [],
@@ -570,6 +949,61 @@ class OrderWorkflow:
                 result['steps'].extend(fee_result['steps'])
 
         # assetPush 已在 record_fee 内部完成（audit_after_fee=True）
+
+        # Step 10: 订单锁定审批
+        if stop_at in ('order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm'):
+            with allure.step(f'[{stop_at}] Step10: 订单锁定审批'):
+                order_id = after_submit_order.get('order_id')
+                if not order_id:
+                    cls._attach_context(result)
+                    raise AssertionError('提交后查询不到订单，无法发起订单锁定审批')
+                lock_result = cls.record_order_lock(order_id=order_id, bl_no=bl_no)
+                result['order_lock_result'] = lock_result
+                result['steps'].extend(lock_result['steps'])
+
+        # Step 11: 未放款开票申请审批
+        if stop_at in ('invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm'):
+            with allure.step('[invoice_apply] Step11: 未放款开票申请审批'):
+                order_id = after_submit_order.get('order_id')
+                if not order_id:
+                    cls._attach_context(result)
+                    raise AssertionError('提交后查询不到订单，无法发起未放款开票申请审批')
+                invoice_result = cls.record_invoice_apply(order_id=order_id, bl_no=bl_no)
+                result['invoice_apply_result'] = invoice_result
+                result['steps'].extend(invoice_result['steps'])
+
+        # Step 12: 供应商垫付申请审批
+        if stop_at in ('supplier_advance', 'fee_notice', 'fee_confirm'):
+            with allure.step('[supplier_advance] Step12: 供应商垫付申请审批'):
+                order_id = after_submit_order.get('order_id')
+                if not order_id:
+                    cls._attach_context(result)
+                    raise AssertionError('提交后查询不到订单，无法发起供应商垫付申请审批')
+                advance_result = cls.record_supplier_advance(order_id=order_id, bl_no=bl_no)
+                result['supplier_advance_result'] = advance_result
+                result['steps'].extend(advance_result['steps'])
+
+        # Step 13: 生成费用通知单
+        if stop_at in ('fee_notice', 'fee_confirm'):
+            with allure.step('[fee_notice] Step13: 生成费用通知单'):
+                order_id = after_submit_order.get('order_id')
+                if not order_id:
+                    cls._attach_context(result)
+                    raise AssertionError('提交后查询不到订单，无法生成费用通知单')
+                notice_result = cls.record_generate_fee_notice(order_id=order_id)
+                result['fee_notice_result'] = notice_result
+                result['steps'].extend(notice_result['steps'])
+
+        # Step 14: 生成费用确认单
+        if stop_at == 'fee_confirm':
+            with allure.step('[fee_confirm] Step14: 生成费用确认单'):
+                order_id = after_submit_order.get('order_id')
+                if not order_id:
+                    cls._attach_context(result)
+                    raise AssertionError('提交后查询不到订单，无法生成费用确认单')
+                confirm_result = cls.record_generate_fee_confirm(order_id=order_id)
+                result['fee_confirm_result'] = confirm_result
+                result['steps'].extend(confirm_result['steps'])
 
         cls._attach_context(result)
         return result
@@ -621,5 +1055,70 @@ class OrderWorkflow:
         return cls.full_flow(
             bl_no=bl_no,
             stop_at='record_audit',
+            fee_configs=fee_configs,
+        )
+
+    @classmethod
+    def run_until_order_lock(
+        cls,
+        fee_configs: List[Dict[str, Any]] = None,
+        bl_no: str = None,
+    ) -> Dict[str, Any]:
+        """执行到订单锁定审批阶段（含资产推送 + 订单锁定）"""
+        return cls.full_flow(
+            bl_no=bl_no,
+            stop_at='order_lock',
+            fee_configs=fee_configs,
+        )
+
+    @classmethod
+    def run_until_invoice_apply(
+        cls,
+        fee_configs: List[Dict[str, Any]] = None,
+        bl_no: str = None,
+    ) -> Dict[str, Any]:
+        """执行到未放款开票申请审批阶段（含资产推送 + 订单锁定 + 未放款开票申请）"""
+        return cls.full_flow(
+            bl_no=bl_no,
+            stop_at='invoice_apply',
+            fee_configs=fee_configs,
+        )
+
+    @classmethod
+    def run_until_supplier_advance(
+        cls,
+        fee_configs: List[Dict[str, Any]] = None,
+        bl_no: str = None,
+    ) -> Dict[str, Any]:
+        """执行到供应商垫付申请审批阶段（含资产推送 + 订单锁定 + 未放款开票申请 + 供应商垫付申请）"""
+        return cls.full_flow(
+            bl_no=bl_no,
+            stop_at='supplier_advance',
+            fee_configs=fee_configs,
+        )
+
+    @classmethod
+    def run_until_fee_notice(
+        cls,
+        fee_configs: List[Dict[str, Any]] = None,
+        bl_no: str = None,
+    ) -> Dict[str, Any]:
+        """执行到生成费用通知单阶段（含资产推送 + 订单锁定 + 未放款开票申请 + 供应商垫付申请 + 费用通知单）"""
+        return cls.full_flow(
+            bl_no=bl_no,
+            stop_at='fee_notice',
+            fee_configs=fee_configs,
+        )
+
+    @classmethod
+    def run_until_fee_confirm(
+        cls,
+        fee_configs: List[Dict[str, Any]] = None,
+        bl_no: str = None,
+    ) -> Dict[str, Any]:
+        """执行到生成费用确认单阶段（含资产推送 + 订单锁定 + 未放款开票申请 + 供应商垫付申请 + 费用通知单 + 费用确认单）"""
+        return cls.full_flow(
+            bl_no=bl_no,
+            stop_at='fee_confirm',
             fee_configs=fee_configs,
         )

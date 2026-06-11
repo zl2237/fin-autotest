@@ -11,6 +11,8 @@ from data.order_data import (
     BaseOrderData,
     SubmitRequiredFields,
     BookRealAmountData,
+    FeeNoticeData,
+    FeeConfirmData,
     generate_bl_no
 )
 from config.settings import ORDER_OPERATOR_CONFIG
@@ -27,6 +29,8 @@ class OrderApi:
     SUBMIT_ORDER_URL = "/api/order/order/orderAdd"              # 订单提交
     GENERATE_SUB_ORDER_URL = "/api/order/order/generateOrderSub"  # 生成子订单
     BOOK_REAL_AMOUNT_URL = "/api/order/orderFee/bookRealAmountEdit"  # 订舱费用录费用
+    FEE_NOTICE_URL = "/api/order/order/orderNotice"  # 生成费用通知单
+    FEE_CONFIRM_URL = "/api/order/order/orderConfirmLoan"  # 生成费用确认单
 
     @classmethod
     def get_entrust_order_list(
@@ -443,3 +447,59 @@ class OrderApi:
             "bl_no": bl_no,
             "order_id": order_id
         }
+
+    @classmethod
+    def generate_fee_notice(
+        cls,
+        order_id: str,
+        finance_ids: List[str] = None,
+        bank_ids: List[str] = None,
+        action: str = "submit",
+    ) -> Any:
+        """
+        生成费用通知单
+
+        Args:
+            order_id   : 业务订单ID（从链路流程获取）
+            finance_ids: 费用ID列表
+            bank_ids   : 账户ID列表
+            action     : 操作类型
+
+        Returns:
+            Response 对象
+        """
+        payload = FeeNoticeData.get_generate_payload(
+            order_id=order_id,
+            finance_ids=finance_ids,
+            bank_ids=bank_ids,
+            action=action,
+        )
+        return http.post(cls.FEE_NOTICE_URL, json=payload)
+
+    @classmethod
+    def generate_fee_confirm(
+        cls,
+        order_id: str,
+        finance_ids: List[str] = None,
+        bank_ids: List[str] = None,
+        action: str = "submit",
+    ) -> Any:
+        """
+        生成费用确认单
+
+        Args:
+            order_id   : 业务订单ID（从链路流程获取）
+            finance_ids: 费用ID列表
+            bank_ids   : 账户ID列表
+            action     : 操作类型
+
+        Returns:
+            Response 对象
+        """
+        payload = FeeConfirmData.get_generate_payload(
+            order_id=order_id,
+            finance_ids=finance_ids,
+            bank_ids=bank_ids,
+            action=action,
+        )
+        return http.post(cls.FEE_CONFIRM_URL, json=payload)
