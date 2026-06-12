@@ -10,7 +10,7 @@
 - 17 条链路，覆盖从新建到发票上传与登记完整流程（按需执行，灵活组合）
 - workflows 层自动处理步骤间数据依赖（order_id、审批ID 等自动传递）
 - 资产推送审批 / 订单锁定审批 / 未放款开票申请审批 / 供应商垫付申请审批 内嵌于链路流程
-- 所有业务配置参数集中存储于 YAML 文件（订单、费用、审批流、费用通知单、费用确认单），Python 代码零硬编码
+- 所有业务配置参数集中存储于 YAML 文件（订单、费用、审批流、费用通知单、费用确认单、对账、开票），Python 代码零硬编码
 - 测试结果写入 JSON + Allure 报告，CI 环境自动企微机器人通知
 - 全局登录会话管理
 
@@ -37,12 +37,12 @@ pr_study/
 │   ├── order.yaml                # 订单基础数据、提交字段、箱型模板
 │   ├── fee.yaml                  # 录费用配置（客户应收、供应商应付、默认值）
 │   ├── audit.yaml                # 审批流配置（资产推送、订单锁定、开票申请、垫付申请）
-│   ├── fee_notice.yaml           # 费用通知单配置
+│   ├── fee_notice.yaml          # 费用通知单配置
 │   ├── fee_confirm.yaml          # 费用确认单配置
 │   ├── receive_account.yaml      # 应收对账配置
 │   ├── receive_invoice.yaml      # 应收开票批次配置
-│   └── receive_invoice_upload.yaml # 应收发票上传与登记配置
-│   ├── order_data.py             # 订单数据类（载荷构建）
+│   ├── receive_invoice_upload.yaml # 应收发票上传与登记配置
+│   ├── order_data.py             # 订单数据类（载荷构建，常量导出）
 │   └── audit_data.py            # 审批数据类（载荷构建）
 │
 ├── testcases/                    # 测试用例层
@@ -50,17 +50,18 @@ pr_study/
 │
 ├── utils/                        # 工具模块
 │   ├── logger.py                 # 日志工具
-│   └── file_util.py             # 文件操作工具
+│   └── file_util.py              # 文件操作工具
 │
 ├── workflows/                    # 流程编排层
-│   └── order_workflow.py         # 订单全流程编排（新建→分发→暂存→提交→子订单→录费用→审批→费用单）
+│   └── order_workflow.py         # 订单全流程编排（新建→分发→暂存→提交→子订单→录费用→审批→费用单→对账→开票→发票上传）
 │
 ├── conftest.py                   # pytest 全局配置（登录、报告生成）
 ├── notify.py                     # 企微机器人通知脚本
 ├── pytest.ini                    # pytest 配置（标记、报告路径）
 ├── .env.example                  # 环境变量模板
 ├── .gitignore                    # Git 忽略配置
-└── requirements.txt              # Python 依赖
+├── .gitlab-ci.yml               # GitLab CI 配置
+└── requirements.txt             # Python 依赖
 ```
 
 ---
@@ -114,12 +115,9 @@ copy .env.example .env
 pytest testcases/test_link.py -v
 
 # 按标记运行指定链路
-pytest testcases/test_link.py -m link8      # 从 link8 开始
+pytest testcases/test_link.py -m link1           # 仅链路1
 pytest testcases/test_link.py -m "link11 or link12"  # 同时跑多条
-pytest testcases/test_link.py -m link12      # 仅链路12
-pytest testcases/test_link.py -m link13      # 仅链路13
-pytest testcases/test_link.py -m link14      # 仅链路14
-pytest testcases/test_link.py -m link15      # 仅链路15
+pytest testcases/test_link.py -m link17           # 从链路17开始（包含LK1~LK16所有前置步骤）
 ```
 
 ### 4. 测试结果
@@ -153,11 +151,26 @@ pytest testcases/test_link.py -m link15      # 仅链路15
 | link14 | 确认应收对账 | ... → **发起应收对账批次** → **确认应收对账** |
 | link15 | 发起应收开票批次审批 | ... → **确认应收对账** → **发起应收开票批次审批** |
 | link16 | 审核生成开票申请 | ... → **发起应收开票批次审批** → **审核生成开票申请** |
-
-| link16 | 审核生成开票申请 | ... → **发起应收开票批次审批** → **审核生成开票申请** |
 | link17 | 发票上传与登记 | ... → **审核生成开票申请** → **发票上传与登记** |
 
 > 链路按依赖顺序递增：link8 隐含 link7 的全部步骤，link17 隐含 link1~link16 的全部步骤。
+
+### 快捷方法
+
+`order_workflow.py` 提供了 `run_until_xxx` 系列快捷方法，可直接执行到指定阶段：
+
+```python
+from workflows.order_workflow import OrderWorkflow
+
+OrderWorkflow.run_until_distribute()           # 新建 + 分发
+OrderWorkflow.run_until_stash()               # 到暂存
+OrderWorkflow.run_until_generate_sub_order()  # 到子订单
+OrderWorkflow.run_until_record_fee(...)       # 到录费用
+OrderWorkflow.run_until_fee_notice()          # 到费用通知单
+OrderWorkflow.run_until_fee_confirm()         # 到费用确认单
+OrderWorkflow.run_until_receive_account()     # 到应收对账批次
+OrderWorkflow.run_until_confirm_account()     # 到确认应收对账
+```
 
 ---
 
@@ -207,6 +220,28 @@ pytest testcases/test_link.py -m link15      # 仅链路15
 |------|------|------|
 | `query_finance_put_list()` | POST /api/finance/accountFee/financePutList | 查询应收款项列表（用于预填充 select_list） |
 | `edit_receive_account()` | POST /api/finance/receiveAccount/orderReceiveAccountEdit | 应收对账批次编辑（action=check 预校验 / action=submit 正式提交） |
+| `get_receive_account_detail()` | POST /api/finance/receiveAccount/receiveAccountDetail | 查询应收对账批次详情 |
+| `confirm_receive_account()` | POST /api/finance/receiveAccount/accountConfirm | 确认应收对账 |
+| `get_confirm_list()` | POST /api/finance/receiveAccount/receiveConfirmList | 查询应收确认列表 |
+
+### 应收开票批次 API（`api/invoice_batch_api.py`）
+
+| 方法 | 接口 | 说明 |
+|------|------|------|
+| `query_finance_put_list()` | POST /api/finance/accountFee/financePutList | 查询应收款项列表（开票模式） |
+| `get_exchange_rate()` | POST /api/home/exchangeRate/monthExchangeRate | 获取系统汇率 |
+| `get_sell_info()` | POST /api/finance/receiveInvoiceBatch/getSellInfo | 获取开票方信息（买家/卖家） |
+| `batch_order_edit()` | POST /api/Finance/ReceiveInvoiceBatch/batchOrderEdit | 批次编辑（action=check/audit/submit） |
+| `verify_batch()` | POST /api/Finance/ReceiveInvoiceBatch/batchpage | 验证批次创建 |
+
+### 应收发票上传与登记 API（`api/invoice_upload_api.py`）
+
+| 方法 | 接口 | 说明 |
+|------|------|------|
+| `upload_file()` | POST /api/home/common/uploadFile | 上传发票文件（PDF） |
+| `invoice_add()` | POST /api/finance/receiveInvoice/invoiceAdd | 上传应收发票 |
+| `get_apply_page()` | POST /api/Finance/ReceiveInvoiceBatch/applyPage | 按提单号查询发票申请ID |
+| `allocation_invoice_fee()` | POST /api/Finance/ReceiveInvoiceBatch/allocationInvoiceFee | 应收开票申请登记发票 |
 
 ---
 
@@ -222,6 +257,8 @@ pytest testcases/test_link.py -m link15      # 仅链路15
 | `fee_notice.yaml` | 生成费用通知单的 action、finance_ids、bank_ids |
 | `fee_confirm.yaml` | 生成费用确认单的 action、finance_ids、bank_ids |
 | `receive_account.yaml` | 应收对账批次查询/预校验/提交接口的默认参数 |
+| `receive_invoice.yaml` | 应收开票批次编辑的枚举值、默认值、action 常量 |
+| `receive_invoice_upload.yaml` | 应收发票上传与登记接口的发票信息、买家/卖家信息、默认税率 |
 
 > 调整测试数据时只需修改对应 YAML 文件，无需改动 Python 代码。
 
@@ -242,11 +279,10 @@ result = OrderWorkflow.full_flow(
 
 # === 方式二：快捷方法 ===
 result = OrderWorkflow.run_until_fee_confirm()
-
-# === 方式三：执行到应收对账批次 ===
 result = OrderWorkflow.run_until_receive_account()
+result = OrderWorkflow.run_until_confirm_account()
 
-# === 方式四：直接调用 API ===
+# === 方式三：直接调用 API ===
 from api.order import OrderApi
 
 resp = OrderApi.add_order(bl_no="TEST_BL_001")

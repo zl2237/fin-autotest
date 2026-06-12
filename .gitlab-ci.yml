@@ -18,7 +18,7 @@ lint:
   tags:
     - api
 
-# ② 冒烟测试
+# ② 冒烟测试（跑 link13 应收对账，覆盖 link1~link12）
 smoke_test:
   stage: smoke_test
   rules:
@@ -30,7 +30,7 @@ smoke_test:
     - python3 -m pip install -r requirements.txt --break-system-packages
   script:
     - mkdir -p report/allure-results
-    - python3 -m pytest testcases/ -m link15 --alluredir report/allure-results
+    - python3 -m pytest testcases/ -m link17 --alluredir report/allure-results
   after_script:
     - echo "smoke_test done"
   artifacts:
