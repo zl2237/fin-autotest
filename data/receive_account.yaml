@@ -44,6 +44,10 @@ _constants:
   sort_field: "create_time"
   sort_order_desc: "desc"
 
+  # 主体名称（用于 financePutList / orderReceiveAccountEdit 的 main_name 和 customer_main_name）
+  customer_main_name: "青岛易航道物流科技有限公司"
+  main_name: "青岛易航道物流科技有限公司"
+
 # ---------------------------------------------------------------------------
 # financePutList（查询应收款项列表）
 # ---------------------------------------------------------------------------

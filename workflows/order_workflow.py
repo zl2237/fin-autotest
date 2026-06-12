@@ -8,7 +8,7 @@ from typing import Dict, Any, List
 
 import allure
 
-from config.settings import BASE_DIR
+from config.settings import BASE_DIR, TEST_DATA_DIR
 from core.http_client import http
 from api.order import OrderApi
 from api.audit_api import AuditApi
@@ -446,7 +446,6 @@ class OrderWorkflow:
         put_settle_object_id: str,
         main_id: str,
         put_settle_object: str,
-        main_name: str,
     ) -> Dict[str, Any]:
         """
         发起应收对账批次（financePutList 查询 → check 预校验 → submit 正式提交）
@@ -457,8 +456,8 @@ class OrderWorkflow:
             bl_no                : 提单号
             put_settle_object_id : 托单结算对象ID
             main_id              : 主体ID
-            put_settle_object    : 托单结算对象名称
-            main_name            : 主体名称
+            put_settle_object   : 托单结算对象名称
+            main_name            : 主体名称（固定从配置读取，不从外部传入）
 
         Returns:
             {
@@ -475,10 +474,13 @@ class OrderWorkflow:
                 'steps': [...],
             }
         """
+        from data.order_data import RECEIVE_ACCOUNT_MAIN_NAME
+
         result = {
             'bl_no': bl_no,
             'steps': [],
         }
+        main_name = RECEIVE_ACCOUNT_MAIN_NAME
 
         # Step 1: financePutList - 查询应收款项列表
         with allure.step('查询应收款项列表（financePutList）'):
@@ -1805,12 +1807,11 @@ class OrderWorkflow:
 
                 # put_settle_object_id 从 fee.yaml 客户配置中提取（托单结算对象）
                 put_settle_object_id = BookRealAmountData.get_customer_settle_object_id()
-                # put_settle_object / main_id / main_name 从 after_submit_order 中提取
+                # put_settle_object / main_id 从 after_submit_order 中提取
                 submit_order = result.get('after_submit_order', {})
                 put_settle_object = submit_order.get('put_settle_object', '')
                 # main_id 优先取 order 数据，没有则回退 YAML 默认值
                 main_id = submit_order.get('main_id') or _default_main_id()
-                main_name = submit_order.get('main_name', '')
 
                 if not put_settle_object_id:
                     cls._attach_context(result)
@@ -1821,7 +1822,6 @@ class OrderWorkflow:
                     put_settle_object_id=put_settle_object_id,
                     main_id=main_id,
                     put_settle_object=put_settle_object,
-                    main_name=main_name,
                 )
                 result['receive_account_result'] = receive_result
                 result['steps'].extend(receive_result['steps'])
@@ -1929,7 +1929,7 @@ class OrderWorkflow:
 
                 fee_notice_result = result.get('fee_notice_result', {})
                 fee_file_info = fee_notice_result.get('file_info', {})
-                invoice_file_path = str(BASE_DIR / "invoice.pdf")
+                invoice_file_path = f"{TEST_DATA_DIR}/invoice.pdf"
                 upload_result = cls.record_invoice_upload(
                     bl_no=bl_no,
                     fee_file_info=fee_file_info,

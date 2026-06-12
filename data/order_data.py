@@ -71,6 +71,10 @@ TIMESTAMP_MS_FACTOR = _RA_CONST.get("timestamp_ms_factor", 1000)
 SORT_FIELD_CREATE_TIME = _RA_CONST.get("sort_field", "create_time")
 SORT_ORDER_DESC = _RA_CONST.get("sort_order_desc", "desc")
 
+# -- 主体名称（从 receive_account.yaml 读取）--
+CUSTOMER_MAIN_NAME = _RA_CONST.get("customer_main_name", "青岛易航道物流科技有限公司")
+RECEIVE_ACCOUNT_MAIN_NAME = _RA_CONST.get("main_name", "青岛易航道物流科技有限公司")
+
 # -- 应收开票批次常量（从 receive_invoice.yaml 读取）--
 INVOICE_BATCH_TYPE = _RI_CONST.get("batch_type", 1)
 INVOICE_SEARCH_STYLE = _RI_CONST.get("search_style_invoice", "invoice")
