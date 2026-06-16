@@ -4,13 +4,13 @@
 
 ## 项目简介
 
-本项目面向物流管理系统，采用分层设计，支持从**新建订单**到**发票上传与登记**的 17 条链路端到端测试，覆盖订单全生命周期、审批流及费用单生成。
+本项目面向物流管理系统，采用分层设计，支持从**新建订单**到**应收核销**的 18 条链路端到端测试，覆盖订单全生命周期、审批流、费用单生成、发票上传与登记、应收核销。
 
 **核心能力：**
-- 17 条链路，覆盖从新建到发票上传与登记完整流程（按需执行，灵活组合）
+- 18 条链路，覆盖从新建到应收核销完整流程（按需执行，灵活组合）
 - workflows 层自动处理步骤间数据依赖（order_id、审批ID 等自动传递）
 - 资产推送审批 / 订单锁定审批 / 未放款开票申请审批 / 供应商垫付申请审批 内嵌于链路流程
-- 所有业务配置参数集中存储于 YAML 文件（订单、费用、审批流、费用通知单、费用确认单、对账、开票），Python 代码零硬编码
+- 所有业务配置参数集中存储于 YAML 文件（订单、费用、审批流、费用通知单、费用确认单、对账、开票、应收核销），Python 代码零硬编码
 - 测试结果写入 JSON + Allure 报告，CI 环境自动企微机器人通知
 - 全局登录会话管理
 
@@ -25,7 +25,8 @@ pr_study/
 │   ├── audit_api.py              # 审批流接口封装
 │   ├── finance_api.py            # 财务应收对账接口封装
 │   ├── invoice_batch_api.py      # 应收开票批次接口封装
-│   └── invoice_upload_api.py     # 应收发票上传与登记接口封装
+│   ├── invoice_upload_api.py     # 应收发票上传与登记接口封装
+│   └── receive_writeoff_api.py   # 应收核销接口封装
 │
 ├── config/                       # 配置层
 │   └── settings.py               # 全局配置（BASE_URL、登录凭证等，支持 .env）
@@ -42,18 +43,19 @@ pr_study/
 │   ├── receive_account.yaml      # 应收对账配置
 │   ├── receive_invoice.yaml      # 应收开票批次配置
 │   ├── receive_invoice_upload.yaml # 应收发票上传与登记配置
+│   ├── receive_writeoff.yaml     # 应收核销配置
 │   ├── order_data.py             # 订单数据类（载荷构建，常量导出）
 │   └── audit_data.py            # 审批数据类（载荷构建）
 │
 ├── testcases/                    # 测试用例层
-│   └── test_link.py              # 17 条链路测试（pytest 标记控制）
+│   └── test_link.py              # 18 条链路测试（pytest 标记控制）
 │
 ├── utils/                        # 工具模块
 │   ├── logger.py                 # 日志工具
 │   └── file_util.py              # 文件操作工具
 │
 ├── workflows/                    # 流程编排层
-│   └── order_workflow.py         # 订单全流程编排（新建→分发→暂存→提交→子订单→录费用→审批→费用单→对账→开票→发票上传）
+│   └── order_workflow.py         # 订单全流程编排（新建→分发→暂存→提交→子订单→录费用→审批→费用单→对账→开票→发票上传→应收核销）
 │
 ├── conftest.py                   # pytest 全局配置（登录、报告生成）
 ├── notify.py                     # 企微机器人通知脚本
@@ -117,7 +119,7 @@ pytest testcases/test_link.py -v
 # 按标记运行指定链路
 pytest testcases/test_link.py -m link1           # 仅链路1
 pytest testcases/test_link.py -m "link11 or link12"  # 同时跑多条
-pytest testcases/test_link.py -m link17           # 从链路17开始（包含LK1~LK16所有前置步骤）
+pytest testcases/test_link.py -m link18           # 从链路18开始（包含LK1~LK17所有前置步骤）
 ```
 
 ### 4. 测试结果
@@ -131,7 +133,7 @@ pytest testcases/test_link.py -m link17           # 从链路17开始（包含LK
 
 ## 链路说明
 
-### 链路一览（17 条）
+### 链路一览（18 条）
 
 | 链路 | 停止阶段 | 覆盖步骤 |
 |------|----------|----------|
@@ -152,8 +154,9 @@ pytest testcases/test_link.py -m link17           # 从链路17开始（包含LK
 | link15 | 发起应收开票批次审批 | ... → **确认应收对账** → **发起应收开票批次审批** |
 | link16 | 审核生成开票申请 | ... → **发起应收开票批次审批** → **审核生成开票申请** |
 | link17 | 发票上传与登记 | ... → **审核生成开票申请** → **发票上传与登记** |
+| link18 | 应收核销 | ... → **发票上传与登记** → **应收核销**（feeTakePage + writeoffBatch） |
 
-> 链路按依赖顺序递增：link8 隐含 link7 的全部步骤，link17 隐含 link1~link16 的全部步骤。
+> 链路按依赖顺序递增：link8 隐含 link7 的全部步骤，link18 隐含 link1~link17 的全部步骤。
 
 ### 快捷方法
 
@@ -170,6 +173,10 @@ OrderWorkflow.run_until_fee_notice()          # 到费用通知单
 OrderWorkflow.run_until_fee_confirm()         # 到费用确认单
 OrderWorkflow.run_until_receive_account()     # 到应收对账批次
 OrderWorkflow.run_until_confirm_account()     # 到确认应收对账
+OrderWorkflow.run_until_invoice_batch()       # 到应收开票批次
+OrderWorkflow.run_until_invoice_batch_audit() # 到开票批次审核
+OrderWorkflow.run_until_invoice_upload()      # 到发票上传与登记
+OrderWorkflow.run_until_receive_writeoff()    # 到应收核销（完整链路）
 ```
 
 ---
@@ -243,6 +250,13 @@ OrderWorkflow.run_until_confirm_account()     # 到确认应收对账
 | `get_apply_page()` | POST /api/Finance/ReceiveInvoiceBatch/applyPage | 按提单号查询发票申请ID |
 | `allocation_invoice_fee()` | POST /api/Finance/ReceiveInvoiceBatch/allocationInvoiceFee | 应收开票申请登记发票 |
 
+### 应收核销 API（`api/receive_writeoff_api.py`）
+
+| 方法 | 接口 | 说明 |
+|------|------|------|
+| `query_order_fee_real_id_list()` | POST /api/order/orderFee/feeTakePage | 按提单号分页查询费用实付 ID 列表（writeoffBatch 上游依赖） |
+| `submit_writeoff_batch()` | POST /api/finance/receiveWriteoff/writeoffBatch | 应收核销批次提交（依赖 feeTakePage 返回的 order_fee_real_id + un_writeoff_amount） |
+
 ---
 
 ## 配置文件说明
@@ -259,6 +273,7 @@ OrderWorkflow.run_until_confirm_account()     # 到确认应收对账
 | `receive_account.yaml` | 应收对账批次查询/预校验/提交接口的默认参数 |
 | `receive_invoice.yaml` | 应收开票批次编辑的枚举值、默认值、action 常量 |
 | `receive_invoice_upload.yaml` | 应收发票上传与登记接口的发票信息、买家/卖家信息、默认税率 |
+| `receive_writeoff.yaml` | 应收核销接口的默认值（main_id / main_name / writeoff_name / statement 银行/汇率等），主主体配置 |
 
 > 调整测试数据时只需修改对应 YAML 文件，无需改动 Python 代码。
 
@@ -281,6 +296,8 @@ result = OrderWorkflow.full_flow(
 result = OrderWorkflow.run_until_fee_confirm()
 result = OrderWorkflow.run_until_receive_account()
 result = OrderWorkflow.run_until_confirm_account()
+result = OrderWorkflow.run_until_invoice_upload()
+result = OrderWorkflow.run_until_receive_writeoff()  # 完整链路（link18 等效）
 
 # === 方式三：直接调用 API ===
 from api.order import OrderApi
