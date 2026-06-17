@@ -30,7 +30,7 @@ smoke_test:
     - python3 -m pip install -r requirements.txt --break-system-packages
   script:
     - mkdir -p report/allure-results
-    - python3 -m pytest testcases/ -m link17 --alluredir report/allure-results
+    - python3 -m pytest testcases/ -m link1 --alluredir report/allure-results
   after_script:
     - echo "smoke_test done"
   artifacts:

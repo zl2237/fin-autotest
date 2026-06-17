@@ -74,6 +74,7 @@ pr_study/
 │
 ├── workflows/                   # 流程编排层
 │   ├── order_workflow.py        # 订单全流程编排（新建→分发→暂存→提交→子订单→录费用→审批→费用单→对账→开票→发票上传→应收核销）
+│   ├── run_pytest_loop.py        # 批量执行脚本来准备数据，需要传入link编号和循环次数
 │   ├── order/                   # 订单域步骤
 │   │   ├── order_steps.py       # 订单基础步骤
 │   │   ├── audit_steps.py       # 审批步骤
