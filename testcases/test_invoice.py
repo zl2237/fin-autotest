@@ -5,12 +5,11 @@
   link16 - 审核生成开票申请
   link17 - 发票上传与登记
 """
-import time as _time
 import allure
 import pytest
 
 from workflows.order_workflow import OrderWorkflow
-from data.order import BookRealAmountData
+from data.order import BookRealAmountData, generate_bl_no
 
 
 def _build_fee_config():
@@ -137,7 +136,7 @@ class TestLink15InvoiceBatch:
     @allure.title("链路15：发起应收对账 → 确认应收对账 → 发起应收开票批次审批")
     def test_link15_invoice_batch(self):
         """验证：完整链路（LINK14 + 发起应收开票批次审批），链路停在 invoice_batch 阶段"""
-        bl_no = 'LK15_' + _time.strftime('%Y%m%d%H%M%S')
+        bl_no = generate_bl_no(15)
 
         with allure.step('执行链路（新建→...→发起应收对账批次→确认应收对账→发起应收开票批次审批）'):
             result = OrderWorkflow.full_flow(
@@ -226,7 +225,7 @@ class TestLink16InvoiceBatchAudit:
     @allure.title("链路16：发起应收开票批次审批 → 审核生成开票申请")
     def test_link16_invoice_batch_audit(self):
         """验证：完整链路（LINK15 + 审核生成开票申请），链路停在 invoice_batch_audit 阶段"""
-        bl_no = 'LK16_' + _time.strftime('%Y%m%d%H%M%S')
+        bl_no = generate_bl_no(16)
 
         with allure.step('执行链路（新建→...→发起应收开票批次审批→审核生成开票申请）'):
             result = OrderWorkflow.full_flow(
@@ -305,7 +304,7 @@ class TestLink17InvoiceUpload:
     @allure.title("链路17：审核生成开票申请 → 发票上传与登记")
     def test_link17_invoice_upload(self):
         """验证：完整链路（LINK16 + 发票上传与登记），链路停在 invoice_upload 阶段"""
-        bl_no = 'LK17_' + _time.strftime('%Y%m%d%H%M%S')
+        bl_no = generate_bl_no(17)
 
         with allure.step('执行链路（新建→...→审核生成开票申请→发票上传与登记）'):
             result = OrderWorkflow.full_flow(

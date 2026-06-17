@@ -3,12 +3,11 @@
 
   link18 - 应收核销（feeTakePage + writeoffBatch）
 """
-import time as _time
 import allure
 import pytest
 
 from workflows.order_workflow import OrderWorkflow
-from data.order import BookRealAmountData
+from data.order import BookRealAmountData, generate_bl_no
 
 
 # =============================================================================
@@ -24,7 +23,7 @@ class TestLink18ReceiveWriteoff:
     @allure.title("链路18：发票上传与登记 → 应收核销（feeTakePage + writeoffBatch）")
     def test_link18_receive_writeoff(self):
         """验证：完整链路（LINK17 + 应收核销），链路停在 receive_writeoff 阶段"""
-        bl_no = 'LK18_' + _time.strftime('%Y%m%d%H%M%S')
+        bl_no = generate_bl_no(18)
 
         customer_fees = BookRealAmountData.get_customer_standard_fees()
         supplier_fees = BookRealAmountData.get_supplier_standard_fees()

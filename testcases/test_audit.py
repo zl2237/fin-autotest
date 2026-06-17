@@ -10,7 +10,7 @@ import allure
 import pytest
 
 from workflows.order_workflow import OrderWorkflow
-from data.order import BookRealAmountData
+from data.order import BookRealAmountData, generate_bl_no
 
 
 def _build_fee_config():
@@ -65,7 +65,7 @@ class TestLink7RecordAudit:
     @allure.title("链路7：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批")
     def test_link7_record_audit(self):
         """验证：完整链路（包含资产推送审批），链路停在 record_audit 阶段"""
-        bl_no = 'LK7_' + __import__('time').strftime('%Y%m%d%H%M%S')
+        bl_no = generate_bl_no(7)
 
         with allure.step('执行链路（新建→分发→查询→暂存→提交→生成子订单→录费用→资产推送审批）'):
             result = OrderWorkflow.full_flow(
@@ -110,7 +110,7 @@ class TestLink8OrderLock:
     @allure.title("链路8：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批")
     def test_link8_order_lock(self):
         """验证：完整链路（包含资产推送审批 + 订单锁定审批），链路停在 order_lock 阶段"""
-        bl_no = 'LK8_' + __import__('time').strftime('%Y%m%d%H%M%S')
+        bl_no = generate_bl_no(8)
 
         with allure.step('执行链路（新建→分发→查询→暂存→提交→生成子订单→录费用→资产推送审批→订单锁定审批）'):
             result = OrderWorkflow.full_flow(
@@ -162,7 +162,7 @@ class TestLink9InvoiceApply:
     @allure.title("链路9：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批 → 未放款开票申请审批")
     def test_link9_invoice_apply(self):
         """验证：完整链路（包含资产推送审批 + 订单锁定审批 + 未放款开票申请审批），链路停在 invoice_apply 阶段"""
-        bl_no = 'LK9_' + __import__('time').strftime('%Y%m%d%H%M%S')
+        bl_no = generate_bl_no(9)
 
         with allure.step('执行链路（新建→分发→查询→暂存→提交→生成子订单→录费用→资产推送审批→订单锁定审批→未放款开票申请审批）'):
             result = OrderWorkflow.full_flow(
@@ -226,7 +226,7 @@ class TestLink10SupplierAdvance:
     @allure.title("链路10：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批 → 未放款开票申请审批 → 供应商垫付申请审批")
     def test_link10_supplier_advance(self):
         """验证：完整链路（包含资产推送审批 + 订单锁定审批 + 未放款开票申请审批 + 供应商垫付申请审批），链路停在 supplier_advance 阶段"""
-        bl_no = 'LK10_' + __import__('time').strftime('%Y%m%d%H%M%S')
+        bl_no = generate_bl_no(10)
 
         with allure.step('执行链路（新建→分发→查询→暂存→提交→生成子订单→录费用→资产推送审批→订单锁定审批→未放款开票申请审批→供应商垫付申请审批）'):
             result = OrderWorkflow.full_flow(

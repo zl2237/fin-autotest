@@ -11,6 +11,7 @@ import allure
 import pytest
 
 from workflows.order_workflow import OrderWorkflow
+from data.order import generate_bl_no
 
 
 # =============================================================================
@@ -26,7 +27,7 @@ class TestLink1Create:
     @allure.title("链路1：仅新建订单")
     def test_link1_create(self):
         """验证：新建订单成功，API 返回 code=200"""
-        bl_no = "LK1_" + __import__("time").strftime("%Y%m%d%H%M%S")
+        bl_no = generate_bl_no(1)
 
         with allure.step("执行新建"):
             result = OrderWorkflow.full_flow(stop_at="create", bl_no=bl_no)
@@ -60,7 +61,7 @@ class TestLink2CreateAndDistribute:
     @allure.title("链路2：新建 → 分发")
     def test_link2_create_and_distribute(self):
         """验证：新建成功，分发成功，链路停在 distribute 阶段"""
-        bl_no = "LK2_" + __import__("time").strftime("%Y%m%d%H%M%S")
+        bl_no = generate_bl_no(2)
 
         with allure.step("执行新建+分发"):
             result = OrderWorkflow.full_flow(stop_at="distribute", bl_no=bl_no)
@@ -100,7 +101,7 @@ class TestLink3Stash:
     @allure.title("链路3：新建 → 分发 → 查询 → 暂存")
     def test_link3_create_distribute_query_stash(self):
         """验证：分发后查询到 order_id，暂存成功（status=1），链路停在 stash 阶段"""
-        bl_no = "LK3_" + __import__("time").strftime("%Y%m%d%H%M%S")
+        bl_no = generate_bl_no(3)
 
         with allure.step("执行新建+分发+查询+暂存"):
             result = OrderWorkflow.full_flow(stop_at="stash", bl_no=bl_no)
@@ -143,7 +144,7 @@ class TestLink4FullWithStash:
     @allure.title("链路4：新建 → 分发 → 查询 → 暂存 → 提交")
     def test_link4_full_with_stash(self):
         """验证：新建→分发→查询→暂存→提交全部成功"""
-        bl_no = "LK4_" + __import__("time").strftime("%Y%m%d%H%M%S")
+        bl_no = generate_bl_no(4)
 
         with allure.step("执行链路（新建→分发→查询→暂存→提交）"):
             result = OrderWorkflow.full_flow(stop_at="submit", skip_stash=False, bl_no=bl_no)
@@ -212,7 +213,7 @@ class TestLink5GenerateSubOrder:
     @allure.title("链路5：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单")
     def test_link5_generate_sub_order(self):
         """验证：完整链路（包含生成子订单），链路停在 generate_sub_order 阶段"""
-        bl_no = "LK5_" + __import__("time").strftime("%Y%m%d%H%M%S")
+        bl_no = generate_bl_no(5)
 
         with allure.step("执行链路（新建→分发→查询→暂存→提交→生成子订单）"):
             result = OrderWorkflow.full_flow(stop_at="generate_sub_order", bl_no=bl_no)

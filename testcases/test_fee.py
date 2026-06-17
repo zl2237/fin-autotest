@@ -7,7 +7,7 @@ import allure
 import pytest
 
 from workflows.order_workflow import OrderWorkflow
-from data.order import BookRealAmountData
+from data.order import BookRealAmountData, generate_bl_no
 
 
 # =============================================================================
@@ -23,7 +23,7 @@ class TestLink6RecordFee:
     @allure.title("链路6：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用")
     def test_link6_record_fee(self):
         """验证：完整链路（包含录费用），链路停在 record_fee 阶段"""
-        bl_no = 'LK6_' + __import__('time').strftime('%Y%m%d%H%M%S')
+        bl_no = generate_bl_no(6)
 
         customer_fees = BookRealAmountData.get_customer_standard_fees()
         supplier_fees = BookRealAmountData.get_supplier_standard_fees()

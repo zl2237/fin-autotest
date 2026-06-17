@@ -143,9 +143,9 @@ class BookRealAmountData:
 # 提单号
 # ========================================================================
 
-def generate_bl_no() -> str:
+def generate_bl_no(num) -> str:
     now = datetime.now()
-    return f"lele_apiauto_{now.strftime('%Y%m%d%H%M%S')}"
+    return f"lele_api_link{num}_{now.strftime('%Y%m%d%H%M%S')}"
 
 
 # ========================================================================

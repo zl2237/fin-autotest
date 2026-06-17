@@ -8,7 +8,7 @@ import allure
 import pytest
 
 from workflows.order_workflow import OrderWorkflow
-from data.order import BookRealAmountData
+from data.order import BookRealAmountData, generate_bl_no
 
 
 def _build_fee_config():
@@ -99,7 +99,7 @@ class TestLink13ReceiveAccount:
     @allure.title("链路13：新建 → 分发 → 查询 → 暂存 → 提交 → 生成子订单 → 录费用 → 资产推送审批 → 订单锁定审批 → 未放款开票申请审批 → 供应商垫付申请审批 → 生成费用通知单 → 生成费用确认单 → 发起应收对账批次")
     def test_link13_receive_account(self):
         """验证：完整链路（包含资产推送审批 + 订单锁定审批 + 未放款开票申请审批 + 供应商垫付申请审批 + 费用通知单 + 费用确认单 + 应收对账批次），链路停在 receive_account 阶段"""
-        bl_no = 'LK13_' + __import__('time').strftime('%Y%m%d%H%M%S')
+        bl_no = generate_bl_no(13)
 
         with allure.step('执行链路（新建→...→生成费用确认单→发起应收对账批次）'):
             result = OrderWorkflow.full_flow(
@@ -190,7 +190,7 @@ class TestLink14ConfirmAccount:
     @allure.title("链路14：发起应收对账批次 → 确认应收对账")
     def test_link14_confirm_account(self):
         """验证：完整链路（LINK13 + 确认应收对账），链路停在 confirm_account 阶段"""
-        bl_no = 'LK14_' + __import__('time').strftime('%Y%m%d%H%M%S')
+        bl_no = generate_bl_no(14)
 
         with allure.step('执行链路（新建→...→发起应收对账批次→确认应收对账）'):
             result = OrderWorkflow.full_flow(

@@ -8,6 +8,7 @@ API 层 - 应收发票上传与登记接口封装
 
 所有枚举值、常量默认值统一从 data/receive_invoice_upload.yaml 读取，勿在代码中硬编码。
 """
+import os
 import time
 import uuid
 from typing import Any, Dict, List
@@ -20,6 +21,10 @@ def _const(key: str, default=None):
     return _RECEIVE_INVOICE_UPLOAD_CFG.get("_constants", {}).get(key, default) if _RECEIVE_INVOICE_UPLOAD_CFG else default
 
 
+def _const_for_add(key: str, default=None):
+    return _RECEIVE_INVOICE_UPLOAD_CFG.get("_constants_for_add", {}).get(key, default) if _RECEIVE_INVOICE_UPLOAD_CFG else default
+
+
 class InvoiceUploadApi:
     """应收发票上传与登记 API"""
 
@@ -29,18 +34,19 @@ class InvoiceUploadApi:
     UPLOAD_FILE_URL = "/api/home/common/uploadFile"
 
     @classmethod
-    def upload_file(cls, file_path: str, page: str = "receive") -> Any:
+    def upload_file(cls, file_path: str, page: str = None) -> Any:
         """
         文件上传接口（Step 0）
 
         Args:
             file_path : 文件本地路径
-            page      : 页面标识，固定为 "receive"
+            page      : 页面标识，默认从 yaml 读取（receive）
 
         Returns:
             Response 对象，data 包含 file_id, file_name, file_url, file_type, original_name
         """
-        import os
+        if page is None:
+            page = _const("upload_page", "receive")
         filename = os.path.basename(file_path)
         with open(file_path, "rb") as f:
             files = {
@@ -103,27 +109,27 @@ class InvoiceUploadApi:
         if invoice_type is None:
             invoice_type = _const("invoice_type", "1")
         if invoice_type_name is None:
-            invoice_type_name = _RECEIVE_INVOICE_UPLOAD_CFG.get("_constants_for_add", {}).get("invoice_type_name", "增值税数电普通发票")
+            invoice_type_name = _const_for_add("invoice_type_name", "增值税数电普通发票")
         if invoice_amount is None:
-            invoice_amount = "1500"
+            invoice_amount = _const("invoice_amount", "1260")
         if invoice_tax_amount is None:
-            invoice_tax_amount = "0.00"
+            invoice_tax_amount = _const("invoice_tax_amount", "0.00")
         if invoice_date is None:
             invoice_date = int(time.time())
         if currency is None:
-            currency = _RECEIVE_INVOICE_UPLOAD_CFG.get("_constants_for_add", {}).get("currency", "CNY")
+            currency = _const_for_add("currency", "CNY")
         if usd_amount is None:
-            usd_amount = ""
+            usd_amount = _const("usd_amount", "")
         if invoice_exchange_rate is None:
-            invoice_exchange_rate = "1"
+            invoice_exchange_rate = _const("invoice_exchange_rate", "1")
         if buyer_identity is None:
             buyer_identity = _const("identity_customer", "customer")
         if seller_identity is None:
             seller_identity = _const("identity_main", "main")
         if invoice_image_name is None:
-            invoice_image_name = ""
+            invoice_image_name = _const("invoice_image_name", "")
         if file_path is None:
-            file_path = ""
+            file_path = _const("file_path", "")
 
         payload = [{
             "invoice_number": invoice_number,
@@ -153,14 +159,16 @@ class InvoiceUploadApi:
     def apply_page(
         cls,
         bl_no: str,
-        page_no: int = 1,
-        page_size: int = 20,
+        page_no: int = None,
+        page_size: int = None,
         create_time_start: str = None,
         create_time_end: str = None,
         cancel_status: List[str] = None,
         currency: List[str] = None,
         invoice_status: List[str] = None,
         writeoff_status: List[str] = None,
+        sort_field: str = None,
+        sort_order: str = None,
     ) -> Any:
         """
         获取发票申请分页列表（按提单号精确查询）
@@ -190,6 +198,14 @@ class InvoiceUploadApi:
             end = today + datetime.timedelta(days=365)
             create_time_start = str(int(datetime.datetime.combine(start, datetime.time.min).timestamp()))
             create_time_end = str(int(datetime.datetime.combine(end, datetime.time.max).timestamp()))
+        if page_no is None:
+            page_no = _const("page_no", 1)
+        if page_size is None:
+            page_size = _const("page_size", 20)
+        if sort_field is None:
+            sort_field = _const("sort_field", "create_time")
+        if sort_order is None:
+            sort_order = _const("sort_order_desc", "desc")
         if cancel_status is None:
             cancel_status = []
         if currency is None:
@@ -218,8 +234,8 @@ class InvoiceUploadApi:
                 "invoice_status": invoice_status,
                 "writeoff_status": writeoff_status,
                 "create_id": [],
-                "sort_field": "create_time",
-                "sort_order": "desc",
+                "sort_field": sort_field,
+                "sort_order": sort_order,
                 "params": {},
                 "create_time_start": create_time_start,
                 "create_time_end": create_time_end,

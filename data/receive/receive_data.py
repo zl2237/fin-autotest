@@ -43,6 +43,27 @@ _RI_CONST = _RECEIVE_INVOICE_CFG.get("_constants", {}) if _RECEIVE_INVOICE_CFG e
 # 应收发票上传与登记相关常量（统一从 receive_invoice_upload.yaml 读取）
 # ============================================================================
 _RECEIVE_INVOICE_UPLOAD_CFG = _load_yaml("receive_invoice_upload")
+_RU_CONST = _RECEIVE_INVOICE_UPLOAD_CFG.get("_constants", {}) if _RECEIVE_INVOICE_UPLOAD_CFG else {}
+_RU_CONST_FOR_ADD = _RECEIVE_INVOICE_UPLOAD_CFG.get("_constants_for_add", {}) if _RECEIVE_INVOICE_UPLOAD_CFG else {}
+
+# -- invoice upload (LK17) --
+INVOICE_UPLOAD_TYPE = _RU_CONST.get("invoice_type", "1")
+INVOICE_UPLOAD_TYPE_NAME = _RU_CONST_FOR_ADD.get("invoice_type_name", "增值税数电普通发票")
+INVOICE_UPLOAD_CURRENCY = _RU_CONST_FOR_ADD.get("currency", "CNY")
+INVOICE_UPLOAD_AMOUNT = _RU_CONST.get("invoice_amount", "1260")
+INVOICE_UPLOAD_TAX_AMOUNT = _RU_CONST.get("invoice_tax_amount", "0.00")
+INVOICE_UPLOAD_USD_AMOUNT = _RU_CONST.get("usd_amount", "")
+INVOICE_UPLOAD_EXCHANGE_RATE = _RU_CONST.get("invoice_exchange_rate", "1")
+INVOICE_UPLOAD_IMAGE_NAME = _RU_CONST.get("invoice_image_name", "")
+INVOICE_UPLOAD_FILE_PATH = _RU_CONST.get("file_path", "")
+INVOICE_UPLOAD_UPLOAD_PAGE = _RU_CONST.get("upload_page", "receive")
+INVOICE_UPLOAD_PAGE_NO = _RU_CONST.get("page_no", 1)
+INVOICE_UPLOAD_PAGE_SIZE = _RU_CONST.get("page_size", 20)
+INVOICE_UPLOAD_SORT_FIELD = _RU_CONST.get("sort_field", "create_time")
+INVOICE_UPLOAD_SORT_ORDER = _RU_CONST.get("sort_order_desc", "desc")
+INVOICE_UPLOAD_ACTION_SUBMIT = _RU_CONST.get("action_submit", "submit")
+INVOICE_UPLOAD_IDENTITY_CUSTOMER = _RU_CONST.get("identity_customer", "customer")
+INVOICE_UPLOAD_IDENTITY_MAIN = _RU_CONST.get("identity_main", "main")
 
 # ============================================================================
 # 应收核销相关常量（统一从 receive_writeoff.yaml 读取）
