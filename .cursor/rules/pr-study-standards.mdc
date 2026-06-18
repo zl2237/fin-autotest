@@ -1,0 +1,144 @@
+---
+description: pr_study 项目 AI 编码规范（拒绝硬编码 + stop_at 条件列表）
+alwaysApply: true
+---
+
+# pr_study 项目 AI 编码规范
+
+## 规则一：拒绝硬编码
+
+**适用场景**：在 `data/` 层（data/pay/、data/receive/、data/order/ 等）处理所有可配置业务参数。
+
+### 做法
+
+1. 枚举值、默认值、URL、页码、每页数量等业务常量，必须写入同层级的 YAML 配置文件（如 `data/pay/payable.yaml`）。
+2. Python 代码通过 YAML loader 读取这些值，**禁止在 `api/`、`workflows/`、`testcases/` 中硬编码枚举值**。
+3. 新增字段时，同步更新 YAML 配置和 Python data 类，不在 API 调用处写死值。
+
+### 示例
+
+```python
+# ✅ GOOD - 从 YAML 读取常量
+from data.pay import ACCOUNT_CONFIRM_TYPE
+payload = {"confirm_type": ACCOUNT_CONFIRM_TYPE, ...}
+
+# ❌ BAD - 硬编码枚举值
+payload = {"confirm_type": 0, ...}
+```
+
+### YAML 文件示例
+
+```yaml
+_constants:
+  operate_type: 1
+  account_type: "2"
+  page_no: 1
+  page_size: 50
+
+account_confirm:
+  confirm_type: 0
+  quick_status: 1
+```
+
+---
+
+## 规则二：新增链路时，必须更新 stop_at 条件列表
+
+**适用场景**：在 `workflows/order_workflow.py` 的 `full_flow` 方法中增加新的 `stop_at` 值（如 link21、link22）。
+
+### 问题背景
+
+`full_flow` 中有 13+ 个形如 `if stop_at in ('step_a', 'step_b', ...)` 的条件分支，用于控制每个步骤是否执行。
+
+新增链路时，**必须在所有 13+ 个条件列表中同步加入新的 `stop_at` 值**，否则该 `stop_at` 触发时所有前置步骤都会被跳过。
+
+### 具体操作（4 步）
+
+#### Step 1：在 `workflows/order_workflow.py` 开头添加 import（如尚未导入）
+
+```python
+from workflows.pay import confirm_payable_account as _confirm_payable_account
+```
+
+#### Step 2：在所有 13+ 个前置条件列表中追加新的 stop_at 值
+
+使用 `replace_all` 批量替换，将 `('old_value')` 改为 `('old_value', 'new_value')`：
+
+```python
+# 示例：旧值是 'payable'，新值是 'confirm_payable'
+# 替换前
+if stop_at in ('payable'):
+# 替换后
+if stop_at in ('payable', 'confirm_payable'):
+```
+
+需要同步修改的位置（13 处，对应 Step 8~Step 21）：
+
+```
+Step 8  生成子订单
+Step 9  录费用（含 audit_after 判断）
+Step 10 订单锁定审批
+Step 11 未放款开票申请审批
+Step 12 供应商垫付申请审批
+Step 13 生成费用通知单
+Step 14 生成费用确认单
+Step 15 发起应收对账批次
+Step 16 确认应收对账
+Step 17 发起应收开票批次审批
+Step 18 审核生成开票申请
+Step 19 发票上传与登记
+Step 20 应收核销
+Step 21 发起应付对账批次（link19 分支）
+```
+
+#### Step 3：新增 stop_at 的执行分支
+
+在文件末尾（`_attach_context` 之前）添加：
+
+```python
+# Step N: 新步骤描述
+if stop_at == 'new_stop_at':
+    with allure.step('[new_stop_at] StepN: 新步骤名称'):
+        # 依赖上游结果则先断言存在
+        upstream = result.get('upstream_result')
+        if not upstream:
+            cls._attach_context(result)
+            raise AssertionError('upstream_result 不存在，无法执行新步骤')
+
+        new_result = _new_step_function(
+            bl_no=bl_no,
+            upstream_id=upstream.get('upstream_id'),
+        )
+        result['new_result'] = new_result
+        result['steps'].extend(new_result['steps'])
+```
+
+#### Step 4：更新文档和快捷方法
+
+- `full_flow` 的 docstring 中 `stop_at` 可选值列表加入新值
+- `Returns` 字典说明中加入 `'new_result': ...`
+- 在 `run_until_xxx` 系列快捷方法末尾追加：
+
+```python
+@classmethod
+def run_until_new_step(cls, bl_no: str = None, fee_configs: List[Dict[str, Any]] = None):
+    """执行到新步骤阶段（linkXX 终点）"""
+    return cls.full_flow(bl_no=bl_no, stop_at='new_stop_at', fee_configs=fee_configs)
+```
+
+### 验证方法
+
+运行 `pytest --collect-only`，确认新用例被 collect 到；然后运行 `-m linkXX` 验证链路通过。
+
+### 快速检查清单
+
+```
+[ ] 新 stop_at 值已加入所有 13+ 个条件列表（grep 搜索确认）
+[ ] 新 import 已添加
+[ ] 新执行分支已添加（if stop_at == 'new_stop_at'）
+[ ] full_flow docstring 已更新
+[ ] 快捷方法已添加
+[ ] pytest.ini 中 marker 已注册
+[ ] 用例 collect 成功
+[ ] 链路运行通过
+```

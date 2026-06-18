@@ -47,6 +47,13 @@ PAY_ACCOUNT_ACTION_SUBMIT = (
     _CFG.get("order_pay_account_edit", {}).get("action_submit", "submit")
 )
 
+# -- confirm payable --
+PAY_ACCOUNT_PAGE_ACCOUNT_STATUS = (
+    _CFG.get("pay_account_page", {}).get("account_status", ["1"])
+)
+ACCOUNT_CONFIRM_TYPE = _CFG.get("account_confirm", {}).get("confirm_type", 0)
+ACCOUNT_CONFIRM_QUICK_STATUS = _CFG.get("account_confirm", {}).get("quick_status", 1)
+
 
 # ========================================================================
 # 应付对账批次 - 发起应付对账批次接口（LK19）
@@ -185,3 +192,90 @@ class PayableAccountData:
                 "amount_list": amount_list,
             })
         return result
+
+    @classmethod
+    def get_pay_account_page_payload(
+        cls,
+        bl_no: str,
+        page_no: int = None,
+        page_size: int = None,
+        create_time_start: str = None,
+        create_time_end: str = None,
+        account_status: List[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        构建 payAccountPage 查询请求体（按 bl_no 查询应付对账批次状态）
+
+        Args:
+            bl_no              : 提单号（精确查询，来自上游链路）
+            page_no            : 页码（默认 PAGE_NO_DEFAULT）
+            page_size          : 每页数量（默认 PAGE_SIZE_STANDARD）
+            create_time_start  : 创建时间开始（Unix 秒，默认 1 年前）
+            create_time_end    : 创建时间结束（Unix 秒，默认 1 年后）
+            account_status     : 账户状态列表（默认 ["1"]=对账中）
+
+        Returns:
+            请求体字典
+        """
+        import time as _time
+
+        if page_no is None:
+            page_no = PAGE_NO_DEFAULT
+        if page_size is None:
+            page_size = PAGE_SIZE_STANDARD
+        if create_time_start is None:
+            create_time_start = str(int(_time.time()) - YEAR_OFFSET_SECONDS)
+        if create_time_end is None:
+            create_time_end = str(int(_time.time()) + YEAR_OFFSET_SECONDS)
+        if account_status is None:
+            account_status = list(PAY_ACCOUNT_PAGE_ACCOUNT_STATUS)
+
+        return {
+            "page_no": page_no,
+            "page_size": page_size,
+            "create_time": [
+                int(create_time_start) * 1000,
+                int(create_time_end) * 1000,
+            ],
+            "customer_id": [],
+            "account_status": account_status,
+            "currency": [],
+            "create_id": [],
+            "account_by": [],
+            "bl_nos": [str(bl_no)],
+            "sort_field": SORT_FIELD_CREATE_TIME,
+            "sort_order": SORT_ORDER_DESC,
+            "params": {},
+            "create_time_start": create_time_start,
+            "create_time_end": create_time_end,
+        }
+
+    @classmethod
+    def get_account_confirm_payload(
+        cls,
+        pay_account_id: str,
+        confirm_type: int = None,
+        quick_status: int = None,
+    ) -> Dict[str, Any]:
+        """
+        构建 accountConfirm 确认应付对账请求体。
+
+        Args:
+            pay_account_id : 应付对账批次ID（来自 orderPayAccountEdit 响应）
+            confirm_type   : 确认类型（默认 ACCOUNT_CONFIRM_TYPE=0）
+            quick_status   : 快捷确认标识（默认 ACCOUNT_CONFIRM_QUICK_STATUS=1）
+
+        Returns:
+            请求体字典
+        """
+        if confirm_type is None:
+            confirm_type = ACCOUNT_CONFIRM_TYPE
+        if quick_status is None:
+            quick_status = ACCOUNT_CONFIRM_QUICK_STATUS
+
+        return {
+            "confirm_type": confirm_type,
+            "pay_account_id": str(pay_account_id),
+            "quick_status": quick_status,
+            "confirm_list": [],
+        }

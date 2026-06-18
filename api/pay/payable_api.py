@@ -1,9 +1,11 @@
 """
 API 层 - 应付对账批次接口封装
 
-涉及流程：发起应付对账批次（LK19）
+涉及流程：发起应付对账批次（LK19）+ 确认应付对账（LK20）
   1. POST /api/finance/accountFee/financePayList    - 按 bl_no 查询应付项列表
   2. POST /api/finance/payAccount/orderPayAccountEdit  - 发起应付对账批次
+  3. POST /api/finance/payAccount/payAccountPage     - 确认前查询应付对账批次（验证状态）
+  4. POST /api/finance/payAccount/accountConfirm     - 确认应付对账
 
 所有枚举值、常量默认值统一从 data/pay/payable.yaml 读取，勿在代码中硬编码。
 """
@@ -16,6 +18,8 @@ from data.pay import (
     PAGE_NO_DEFAULT,
     PAGE_SIZE_STANDARD,
     PAY_ACCOUNT_ACTION_SUBMIT,
+    ACCOUNT_CONFIRM_TYPE,
+    ACCOUNT_CONFIRM_QUICK_STATUS,
     PayableAccountData,
 )
 
@@ -25,6 +29,8 @@ class PayableApi:
 
     FINANCE_PAY_LIST_URL = "/api/finance/accountFee/financePayList"
     ORDER_PAY_ACCOUNT_EDIT_URL = "/api/finance/payAccount/orderPayAccountEdit"
+    PAY_ACCOUNT_PAGE_URL = "/api/finance/payAccount/payAccountPage"
+    ACCOUNT_CONFIRM_URL = "/api/finance/payAccount/accountConfirm"
 
     @classmethod
     def query_finance_pay_list(
@@ -123,3 +129,66 @@ class PayableApi:
             "select_list": select_list,
         }
         return http.post(cls.ORDER_PAY_ACCOUNT_EDIT_URL, json=payload)
+
+    @classmethod
+    def query_pay_account_page(
+        cls,
+        bl_no: str,
+        page_no: int = None,
+        page_size: int = None,
+        create_time_start: str = None,
+        create_time_end: str = None,
+        account_status: List[str] = None,
+    ) -> Any:
+        """
+        查询应付对账批次分页列表（payAccountPage，用于确认前验证状态）
+
+        响应 data.data[0].pay_account_id 为应付对账批次ID。
+
+        Args:
+            bl_no              : 提单号（精确查询，来自上游链路）
+            page_no            : 页码（默认 PAGE_NO_DEFAULT）
+            page_size          : 每页数量（默认 PAGE_SIZE_STANDARD）
+            create_time_start  : 创建时间开始（Unix 秒，默认 1 年前）
+            create_time_end    : 创建时间结束（Unix 秒，默认 1 年后）
+            account_status     : 账户状态列表（默认 ["1"]=对账中）
+
+        Returns:
+            Response 对象
+        """
+        payload = PayableAccountData.get_pay_account_page_payload(
+            bl_no=bl_no,
+            page_no=page_no,
+            page_size=page_size,
+            create_time_start=create_time_start,
+            create_time_end=create_time_end,
+            account_status=account_status,
+        )
+        return http.post(cls.PAY_ACCOUNT_PAGE_URL, json=payload)
+
+    @classmethod
+    def confirm_pay_account(
+        cls,
+        pay_account_id: str,
+        confirm_type: int = None,
+        quick_status: int = None,
+    ) -> Any:
+        """
+        确认应付对账（accountConfirm）
+
+        响应 data 为空，code=200 即确认成功。
+
+        Args:
+            pay_account_id : 应付对账批次ID（来自 payAccountPage 查询或 orderPayAccountEdit 响应）
+            confirm_type   : 确认类型（默认 0=待确认）
+            quick_status   : 快捷确认标识（默认 1）
+
+        Returns:
+            Response 对象
+        """
+        payload = PayableAccountData.get_account_confirm_payload(
+            pay_account_id=pay_account_id,
+            confirm_type=confirm_type,
+            quick_status=quick_status,
+        )
+        return http.post(cls.ACCOUNT_CONFIRM_URL, json=payload)

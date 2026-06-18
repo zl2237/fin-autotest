@@ -1,9 +1,11 @@
 # ============================================================================
-# 应付对账批次配置（LK19）
+# 应付对账批次配置（LK19 / LK20）
 # ============================================================================
-# 涉及 2 个请求：
-#   1. financePayList        - 查询应付项列表（按 bl_no）
-#   2. orderPayAccountEdit   - 发起应付对账批次（action=submit）
+# 涉及 4 个请求：
+#   1. financePayList          - 查询应付项列表（按 bl_no）
+#   2. orderPayAccountEdit     - 发起应付对账批次（action=submit）
+#   3. payAccountPage          - 确认前查询应付对账批次（验证状态）
+#   4. accountConfirm          - 确认应付对账
 #
 # 所有枚举值、常量默认值统一从本文件读取，Python 代码中禁止硬编码。
 # ============================================================================
@@ -35,3 +37,15 @@ finance_pay_list:
 order_pay_account_edit:
   # action：submit=正式提交（另有 check=预校验，暂不启用）
   action_submit: "submit"
+
+# payAccountPage 查询参数
+pay_account_page:
+  # 账户状态：1=对账中（用于确认前验证批次状态）
+  account_status: ["1"]
+
+# accountConfirm 参数
+account_confirm:
+  # confirm_type：0=待确认（与应收对账一致）
+  confirm_type: 0
+  # quick_status：1=快捷确认
+  quick_status: 1

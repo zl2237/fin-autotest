@@ -1,7 +1,8 @@
 """
-链路测试 - 应付对账（link19）
+链路测试 - 应付对账（link19 / link20）
 
   link19 - 发起应付对账批次（link18 + financePayList + orderPayAccountEdit）
+  link20 - 确认应付对账（link19 + payAccountPage + accountConfirm）
 """
 import allure
 import pytest
@@ -246,5 +247,123 @@ class TestLink19PayableAccount:
                 '应收核销',
                 '查询应付项列表',
                 '发起应付对账批次',
+            ]:
+                assert name in step_names, f'steps 缺少: {name}'
+
+
+# =============================================================================
+# 链路20：新建...发起应付对账批次 → 确认应付对账
+# =============================================================================
+@pytest.mark.link20
+class TestLink20ConfirmPayable:
+    """链路20：新建 → ... → 发起应付对账批次 → 确认应付对账"""
+
+    @allure.feature("链路测试")
+    @allure.story("链路20：确认应付对账")
+    @allure.severity("critical")
+    @allure.title("链路20：发起应付对账批次 → 确认应付对账（payAccountPage + accountConfirm）")
+    def test_link20_confirm_payable(self):
+        """验证：完整链路（LINK19 + 确认应付对账），链路停在 confirm_payable 阶段"""
+        bl_no = generate_bl_no(20)
+
+        customer_fees = BookRealAmountData.get_customer_standard_fees()
+        supplier_fees = BookRealAmountData.get_supplier_standard_fees()
+
+        fee_config = {
+            'to_customer_fees': customer_fees,
+            'to_supplier_fees': supplier_fees,
+        }
+
+        with allure.step('执行链路（新建→...→发起应付对账批次→确认应付对账）'):
+            result = OrderWorkflow.full_flow(
+                stop_at='confirm_payable',
+                bl_no=bl_no,
+                fee_configs=[fee_config],
+            )
+
+        # ---------- LINK19 前置步骤断言 ----------
+        with allure.step('断言：LINK19 前置链路全部成功'):
+            _assert_link18_prerequisite_ok(result)
+
+        # ----- link19 发起应付对账 -----
+        with allure.step('断言：发起应付对账批次成功'):
+            payable_result = result['payable_account_result']
+            assert payable_result is not None, 'payable_account_result 不应为空'
+            pay_list_data = payable_result['pay_list_data']
+            assert payable_result['pay_list_resp'].status_code == 200
+            assert pay_list_data.get('code') == 200
+            select_list = payable_result['select_list']
+            assert select_list, f'select_list 不应为空: {pay_list_data}'
+            assert payable_result['submit_resp'].status_code == 200
+            assert payable_result['submit_data'].get('code') == 200
+            assert payable_result.get('pay_account_id'), f'pay_account_id 不应为空'
+            assert payable_result.get('pay_account_no'), f'pay_account_no 不应为空'
+
+        # ---------- LINK20 确认应付对账断言 ----------
+
+        with allure.step('断言：确认应付对账结果存在'):
+            confirm_result = result['confirm_payable_result']
+            assert confirm_result is not None, 'confirm_payable_result 不应为空'
+
+        with allure.step('断言：payAccountPage 查询应付对账批次成功'):
+            page_resp = confirm_result['pay_account_page_resp']
+            page_data = confirm_result['pay_account_page_data']
+            assert page_resp.status_code == 200, f'HTTP 状态码异常: {page_resp.status_code}'
+            assert page_data.get('code') == 200, f'payAccountPage 查询失败: {page_data}'
+            assert page_data.get('msg') == '成功', f'payAccountPage msg 不为"成功": {page_data.get("msg")}'
+
+        with allure.step('断言：pay_account_id 非空'):
+            assert confirm_result.get('pay_account_id'), f'pay_account_id 不应为空: {confirm_result}'
+            assert confirm_result.get('pay_account_no'), f'pay_account_no 不应为空: {confirm_result}'
+
+        with allure.step('断言：accountConfirm 确认应付对账成功'):
+            confirm_resp = confirm_result['confirm_resp']
+            confirm_data = confirm_result['confirm_data']
+            assert confirm_resp.status_code == 200, f'HTTP 状态码异常: {confirm_resp.status_code}'
+            assert confirm_data.get('code') == 200, f'accountConfirm 失败: {confirm_data}'
+            assert confirm_data.get('msg') == '成功', f'accountConfirm msg 不为"成功": {confirm_data.get("msg")}'
+
+        with allure.step('断言：bl_no 来自上游链路（未被覆盖）'):
+            assert result['bl_no'] == bl_no
+
+        with allure.step('断言：链路停在 confirm_payable 阶段'):
+            assert result['stop_at'] == 'confirm_payable'
+
+        with allure.step('断言：steps 记录完整'):
+            step_names = [s['name'] for s in result['steps']]
+            for name in [
+                '新建订单', '按提单号查询', '分发订单', '查询订单',
+                '暂存订单', '查询订单（暂存后）', '提交订单', '查询订单（提交后）',
+                '生成子订单',
+                '录费用(1)', '发起审批(1)', '查询审批ID(1)', '审批通过(1)',
+                '获取箱型信息',
+                '发起订单锁定审批', '查询订单锁定审批ID', '订单锁定审批通过',
+                '发起未放款开票申请审批', '查询未放款开票申请审批ID', '未放款开票申请审批通过',
+                '发起供应商垫付申请审批', '查询供应商垫付申请审批ID', '供应商垫付申请审批通过',
+                '生成费用通知单',
+                '生成费用确认单',
+                '查询应收款项列表',
+                '应收对账预校验',
+                '发起应收对账批次',
+                '查询应收对账批次详情',
+                '查询应收确认列表',
+                '确认应收对账',
+                '确认后查询批次列表',
+                '查询应收款项列表（开票）',
+                '获取汇率',
+                '获取开票方信息',
+                '提交应收开票批次申请',
+                '验证应收开票批次',
+                '查询应收开票批次审批ID',
+                '审批通过应收开票批次',
+                '上传应收发票',
+                '获取发票申请ID',
+                '登记发票到申请',
+                '查询应收核销费用列表',
+                '应收核销',
+                '查询应付项列表',
+                '发起应付对账批次',
+                '查询应付对账批次',
+                '确认应付对账',
             ]:
                 assert name in step_names, f'steps 缺少: {name}'
