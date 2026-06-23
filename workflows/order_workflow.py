@@ -32,6 +32,8 @@ from workflows.pay import (
     confirm_payable_account as _confirm_payable_account,
     record_payable_invoice_apply as _record_payable_invoice_apply,
     record_payable_invoice_upload as _record_payable_invoice_upload,
+    record_pay_demand as _record_pay_demand,
+    audit_pay_demand as _audit_pay_demand,
 )
 from workflows.order import (
     generate_sub_order as _generate_sub_order,
@@ -107,6 +109,9 @@ class OrderWorkflow:
                 - 'payable'         新建 + ... + 应收核销 + 发起应付对账批次
                 - 'confirm_payable' 新建 + ... + 发起应付对账批次 + 确认应付对账
                 - 'payable_invoice_apply' 新建 + ... + 确认应付对账 + 发起应付开票批次申请
+                - 'payable_invoice_register' 新建 + ... + 发起应付开票批次申请 + 应付发票上传与登记
+                - 'pay_demand' 新建 + ... + 应付发票上传与登记 + 发起付款需求
+                - 'pay_demand_audit' 新建 + ... + 发起付款需求 + 审核生成付款单
             skip_stash: 是否跳过暂存
             fee_configs: 录费用配置列表（stop_at='record_fee' 时使用）
 
@@ -127,6 +132,9 @@ class OrderWorkflow:
                 'payable_account_result': ...,   # stop_at='payable' 时存在
                 'confirm_payable_result': ...,  # stop_at='confirm_payable' 时存在
                 'payable_invoice_apply_result': ...,  # stop_at='payable_invoice_apply' 时存在
+                'payable_invoice_register_result': ...,  # stop_at='payable_invoice_register' 时存在
+                'pay_demand_result': ...,  # stop_at='pay_demand' 时存在
+                'pay_demand_audit_result': ...,  # stop_at='pay_demand_audit' 时存在
             }
         """
         if bl_no is None:
@@ -242,7 +250,7 @@ class OrderWorkflow:
             })
 
         # Step 8: 生成子订单
-        if stop_at in ('generate_sub_order', 'record_fee', 'record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('generate_sub_order', 'record_fee', 'record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step(f'[{stop_at}] Step7: 生成子订单'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -259,10 +267,10 @@ class OrderWorkflow:
                 })
 
         # Step 9: 录费用（含资产推送审计）
-        if stop_at in ('record_fee', 'record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('record_fee', 'record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step(f'[{stop_at}] Step8: 录费用'):
                 order_id = after_submit_order.get('order_id')
-                audit_after = stop_at in ('record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register')
+                audit_after = stop_at in ('record_audit', 'order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit')
                 fee_result = _record_fee(
                     order_id=order_id,
                     fee_configs=fee_configs or [],
@@ -274,7 +282,7 @@ class OrderWorkflow:
         # assetPush 已在 record_fee 内部完成（audit_after_fee=True）
 
         # Step 10: 订单锁定审批
-        if stop_at in ('order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('order_lock', 'invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step(f'[{stop_at}] Step10: 订单锁定审批'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -285,7 +293,7 @@ class OrderWorkflow:
                 result['steps'].extend(lock_result['steps'])
 
         # Step 11: 未放款开票申请审批
-        if stop_at in ('invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('invoice_apply', 'supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step('[invoice_apply] Step11: 未放款开票申请审批'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -296,7 +304,7 @@ class OrderWorkflow:
                 result['steps'].extend(invoice_result['steps'])
 
         # Step 12: 供应商垫付申请审批
-        if stop_at in ('supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('supplier_advance', 'fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step('[supplier_advance] Step12: 供应商垫付申请审批'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -307,7 +315,7 @@ class OrderWorkflow:
                 result['steps'].extend(advance_result['steps'])
 
         # Step 13: 生成费用通知单
-        if stop_at in ('fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('fee_notice', 'fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step('[fee_notice] Step13: 生成费用通知单'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -318,7 +326,7 @@ class OrderWorkflow:
                 result['steps'].extend(notice_result['steps'])
 
         # Step 14: 生成费用确认单
-        if stop_at in ('fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('fee_confirm', 'receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step('[fee_confirm] Step14: 生成费用确认单'):
                 order_id = after_submit_order.get('order_id')
                 if not order_id:
@@ -329,7 +337,7 @@ class OrderWorkflow:
                 result['steps'].extend(confirm_result['steps'])
 
         # Step 15: 发起应收对账批次
-        if stop_at in ('receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('receive_account', 'confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step('[receive_account] Step15: 发起应收对账批次'):
                 # 从 fee_confirm_result 中提取结算对象信息
                 confirm_result = result.get('fee_confirm_result')
@@ -367,7 +375,7 @@ class OrderWorkflow:
                 result['steps'].extend(receive_result['steps'])
 
         # Step 16: 确认应收对账
-        if stop_at in ('confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('confirm_account', 'invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step('[confirm_account] Step16: 确认应收对账'):
                 receive_result = result.get('receive_account_result')
                 if not receive_result:
@@ -387,7 +395,7 @@ class OrderWorkflow:
                 result['steps'].extend(confirm_result['steps'])
 
         # Step 17: 发起应收开票批次审批
-        if stop_at in ('invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('invoice_batch', 'invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step('[invoice_batch] Step17: 发起应收开票批次审批'):
                 confirm_result = result.get('confirm_account_result')
                 if not confirm_result:
@@ -438,7 +446,7 @@ class OrderWorkflow:
                 result['steps'].extend(invoice_result['steps'])
 
         # Step 18: 审核生成开票申请（stop_at 为 invoice_batch_audit 或 invoice_upload 时都需执行）
-        if stop_at in ('invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('invoice_batch_audit', 'invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step('[invoice_batch_audit] Step18: 审核生成开票申请'):
                 invoice_batch_result = result.get('invoice_batch_result')
                 if not invoice_batch_result:
@@ -455,7 +463,7 @@ class OrderWorkflow:
                 result['steps'].extend(audit_result['steps'])
 
         # Step 19: 发票上传与登记
-        if stop_at in ('invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('invoice_upload', 'receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step('[invoice_upload] Step19: 发票上传与登记'):
                 invoice_batch_result = result.get('invoice_batch_result')
                 if not invoice_batch_result:
@@ -477,7 +485,7 @@ class OrderWorkflow:
                 result['steps'].extend(upload_result['steps'])
 
         # Step 20: 应收核销（feeTakePage + writeoffBatch）
-        if stop_at in ('receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('receive_writeoff', 'payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step('[receive_writeoff] Step20: 应收核销'):
                 # main_id / main_name 优先取 after_submit_order，没有则回退 YAML 默认值
                 from data.receive import (
@@ -497,14 +505,14 @@ class OrderWorkflow:
                 result['steps'].extend(writeoff_result['steps'])
 
         # Step 21: 应付对账（financePayList + orderPayAccountEdit）
-        if stop_at in ('payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('payable', 'confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step('[payable] Step21: 发起应付对账批次'):
                 payable_result = _record_payable_account(bl_no=bl_no)
                 result['payable_account_result'] = payable_result
                 result['steps'].extend(payable_result['steps'])
 
         # Step 22: 确认应付对账（payAccountPage + accountConfirm）
-        if stop_at in ('confirm_payable', 'payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('confirm_payable', 'payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step('[confirm_payable] Step22: 确认应付对账'):
                 payable_result = result.get('payable_account_result')
                 if not payable_result:
@@ -519,7 +527,7 @@ class OrderWorkflow:
                 result['steps'].extend(confirm_result['steps'])
 
         # Step 23: 发起应付开票批次申请（financePayList 开票 + getOrderInfoByFeeId + batchOrderEdit submit）
-        if stop_at in ('payable_invoice_apply', 'payable_invoice_register'):
+        if stop_at in ('payable_invoice_apply', 'payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step('[payable_invoice_apply] Step23: 发起应付开票批次申请'):
                 confirm_result = result.get('confirm_payable_result')
                 if not confirm_result:
@@ -556,7 +564,7 @@ class OrderWorkflow:
                 result['steps'].extend(invoice_result['steps'])
 
         # Step 24: 应付发票上传与登记（uploadFile + invoiceAdd + invoicePage + allocationInvoiceFee）
-        if stop_at == 'payable_invoice_register':
+        if stop_at in ('payable_invoice_register', 'pay_demand', 'pay_demand_audit'):
             with allure.step('[payable_invoice_register] Step24: 应付发票上传与登记'):
                 invoice_apply_result = result.get('payable_invoice_apply_result')
                 if not invoice_apply_result:
@@ -567,6 +575,57 @@ class OrderWorkflow:
                 upload_result = _record_payable_invoice_upload(bl_no=bl_no)
                 result['payable_invoice_register_result'] = upload_result
                 result['steps'].extend(upload_result['steps'])
+
+        # Step 25: 发起付款需求（financePayList + paymentList + demandEditByOrder）
+        if stop_at in ('pay_demand', 'pay_demand_audit'):
+            with allure.step('[pay_demand] Step25: 发起付款需求'):
+                # 优先从 payable_invoice_apply_result 提取（最下游）
+                invoice_apply_result = result.get('payable_invoice_apply_result', {})
+                confirm_result = result.get('confirm_payable_result', {})
+                payable_result = result.get('payable_account_result', {})
+                submit_order = result.get('after_submit_order', {})
+
+                main_id = (
+                    invoice_apply_result.get('main_id')
+                    or confirm_result.get('main_id')
+                    or payable_result.get('main_id')
+                    or submit_order.get('main_id')
+                )
+                pay_settle_object_id = (
+                    invoice_apply_result.get('pay_settle_object_id')
+                    or confirm_result.get('pay_settle_object_id')
+                    or payable_result.get('pay_settle_object_id')
+                    or submit_order.get('pay_settle_object_id')
+                )
+                main_name = (
+                    invoice_apply_result.get('main_name')
+                    or confirm_result.get('main_name')
+                    or payable_result.get('main_name')
+                    or submit_order.get('main_name')
+                )
+                pay_settle_object = (
+                    invoice_apply_result.get('pay_settle_object')
+                    or confirm_result.get('pay_settle_object')
+                    or payable_result.get('pay_settle_object')
+                    or submit_order.get('pay_settle_object')
+                )
+
+                demand_result = _record_pay_demand(
+                    bl_no=bl_no,
+                    main_id=main_id,
+                    main_name=main_name,
+                    pay_settle_object_id=pay_settle_object_id,
+                    pay_settle_object=pay_settle_object,
+                )
+                result['pay_demand_result'] = demand_result
+                result['steps'].extend(demand_result['steps'])
+
+        # Step 26: 审核生成付款单（auditPage + auditExecute）
+        if stop_at == 'pay_demand_audit':
+            with allure.step('[pay_demand_audit] Step26: 审核生成付款单'):
+                audit_result = _audit_pay_demand(bl_no=bl_no)
+                result['pay_demand_audit_result'] = audit_result
+                result['steps'].extend(audit_result['steps'])
 
         cls._attach_context(result)
         return result
@@ -738,3 +797,21 @@ class OrderWorkflow:
     ) -> Dict[str, Any]:
         """执行到发起应付开票批次申请阶段（link21 终点）"""
         return cls.full_flow(bl_no=bl_no, stop_at='payable_invoice_apply', fee_configs=fee_configs)
+
+    @classmethod
+    def run_until_pay_demand(
+        cls,
+        bl_no: str = None,
+        fee_configs: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """执行到发起付款需求阶段（link23 终点）"""
+        return cls.full_flow(bl_no=bl_no, stop_at='pay_demand', fee_configs=fee_configs)
+
+    @classmethod
+    def run_until_pay_demand_audit(
+        cls,
+        bl_no: str = None,
+        fee_configs: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """执行到审核生成付款单阶段（link24 终点）"""
+        return cls.full_flow(bl_no=bl_no, stop_at='pay_demand_audit', fee_configs=fee_configs)

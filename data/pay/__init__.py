@@ -4,9 +4,13 @@
   - pay_account.yaml          应付对账配置（LK19 / LK20）
   - payable_invoice.yaml      应付开票申请配置（LK21）
   - payable_invoice_upload.yaml 应付发票上传与登记配置（LK22）
+  - pay_demand.yaml           发起付款需求配置（LK23）
+  - pay_demand_audit.yaml    审核生成付款单配置（LK24）
   - PayableAccountData        应付对账（link19 / link20）
   - PayableInvoiceData        应付开票申请（link21）
   - PayableInvoiceUploadData  应付发票上传与登记（link22）
+  - PayDemandData             发起付款需求（link23）
+  - PayDemandAuditData       审核生成付款单（link24）
 
 API 层对应：api/pay/ 子包
 """
@@ -49,10 +53,22 @@ from .pay_data import (
     PayableAccountData,
     PayableInvoiceData,
     PayableInvoiceUploadData,
+    PayDemandData,
+    PayDemandAuditData,
     _CFG,
     _INV_CFG,
     _CONST,
     _INV_CONST,
+    _UPLOAD_CFG,
+    _DEMAND_CFG,
+    _DEMAND_CONST,
+    PAY_DEMAND_OPERATE_TYPE,
+    PAY_DEMAND_BATCH_TYPE,
+    PAY_DEMAND_SEARCH_STYLE,
+    PAY_DEMAND_OPERATION_TYPE,
+    PAY_DEMAND_SPLIT_DIMENSION,
+    PAY_DEMAND_AUDIT_MSG,
+    PAY_DEMAND_ACTION_SUBMIT,
 )
 
 __all__ = [
@@ -93,4 +109,13 @@ __all__ = [
     "PayableAccountData",
     "PayableInvoiceData",
     "PayableInvoiceUploadData",
+    "PayDemandData",
+    "PayDemandAuditData",
+    "PAY_DEMAND_OPERATE_TYPE",
+    "PAY_DEMAND_BATCH_TYPE",
+    "PAY_DEMAND_SEARCH_STYLE",
+    "PAY_DEMAND_OPERATION_TYPE",
+    "PAY_DEMAND_SPLIT_DIMENSION",
+    "PAY_DEMAND_AUDIT_MSG",
+    "PAY_DEMAND_ACTION_SUBMIT",
 ]

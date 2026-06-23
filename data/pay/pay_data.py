@@ -963,3 +963,573 @@ class PayableInvoiceUploadData:
             "action": action,
         }
 
+
+# ========================================================================
+# 发起付款需求 - 配置与数据构建（LK23）
+# ========================================================================
+# 链路结构：
+#   step1: financePayList       - 查询应付费用列表（获取 select_list）
+#   step2: paymentList         - 付款需求预览（获取 payment_list 及汇总数据）
+#   step3: demandEditByOrder  - 提交付款需求（action=submit）
+# ========================================================================
+
+_DEMAND_CFG = _load_yaml("pay_demand")
+_DEMAND_CONST = _DEMAND_CFG.get("_constants", {}) if _DEMAND_CFG else {}
+
+
+# 模块级常量（从 pay_demand.yaml 读取）
+PAY_DEMAND_OPERATE_TYPE = _DEMAND_CONST.get("operate_type", 1)
+PAY_DEMAND_BATCH_TYPE = _DEMAND_CONST.get("batch_type", 1)
+PAY_DEMAND_PAGE_NO = _DEMAND_CONST.get("page_no", 1)
+PAY_DEMAND_PAGE_SIZE = _DEMAND_CONST.get("page_size", 50)
+PAY_DEMAND_YEAR_OFFSET_SECONDS = _DEMAND_CONST.get("page_year_offset", 365) * 86400
+
+_DEMAND_CFG_INNER = _DEMAND_CFG.get("finance_pay_list", {}) if _DEMAND_CFG else {}
+PAY_DEMAND_SEARCH_STYLE = _DEMAND_CFG_INNER.get("search_style", "payment")
+
+_DEMAND_PAYMENT = _DEMAND_CFG.get("payment_demand", {}) if _DEMAND_CFG else {}
+PAY_DEMAND_OPERATION_TYPE = _DEMAND_PAYMENT.get("operation_type", 1)
+PAY_DEMAND_SPLIT_DIMENSION = _DEMAND_PAYMENT.get("split_dimension", [
+    "customer_id", "main_id", "pay_settle_object_id", "currency"
+])
+PAY_DEMAND_AUDIT_MSG = _DEMAND_PAYMENT.get("audit_msg", {})
+PAY_DEMAND_ACTION_SUBMIT = _DEMAND_PAYMENT.get("action_submit", "submit")
+
+
+class PayDemandData:
+    """
+    发起付款需求（LK23）数据类
+
+    涉及 3 个接口：
+      1. financePayList        - 查询应付费用列表（付款需求模式）
+      2. paymentList          - 付款需求预览
+      3. demandEditByOrder    - 提交付款需求
+
+    字段处理规则（已在 record 梳理中确认）：
+      - operate_type / batch_type：data 层固定值
+      - select_amount / cost_usd / cost_cny：从 amount_list 累加计算
+      - split_dimension：data 层配置
+      - _XID：索引拼接 (row_0, row_1...)
+      - select_node_user：data 层配置（user_id 从 .env 读取）
+      - fee_currency：从 select_list 获取币种
+      - all_money_data / right_money_data：从 payment_list 汇总计算
+      - audit_msg：data 层固定值
+    """
+
+    @classmethod
+    def get_finance_pay_list_payload(
+        cls,
+        bl_no: str,
+        main_id: str = None,
+        pay_settle_object_id: str = None,
+        page_no: int = None,
+        page_size: int = None,
+        create_time_start: str = None,
+        create_time_end: str = None,
+    ) -> Dict[str, Any]:
+        """
+        构建 financePayList 查询请求体（付款需求模式）
+
+        与 link19 对账模式共用接口，仅 search_style 不同（payment vs account）。
+
+        Args:
+            bl_no               : 提单号（精确查询，来自上游链路）
+            main_id             : 主体ID（可选，缺省时从 YAML 读取）
+            pay_settle_object_id: 付款结算对象ID（可选，缺省时从 YAML 读取）
+            page_no            : 页码（默认 PAGE_NO_DEFAULT）
+            page_size          : 每页数量（默认 PAGE_SIZE_STANDARD）
+            create_time_start  : 创建时间开始（Unix 秒，默认 1 年前）
+            create_time_end    : 创建时间结束（Unix 秒，默认 1 年后）
+
+        Returns:
+            请求体字典
+        """
+        import time as _time
+
+        if page_no is None:
+            page_no = PAY_DEMAND_PAGE_NO
+        if page_size is None:
+            page_size = PAY_DEMAND_PAGE_SIZE
+        if create_time_start is None:
+            create_time_start = str(int(_time.time()) - PAY_DEMAND_YEAR_OFFSET_SECONDS)
+        if create_time_end is None:
+            create_time_end = str(int(_time.time()) + PAY_DEMAND_YEAR_OFFSET_SECONDS)
+
+        return {
+            "page_no": page_no,
+            "page_size": page_size,
+            "contain_fee_type": [],
+            "bl_nos": [str(bl_no)],
+            "main_id": [str(main_id)] if main_id else [],
+            "pay_settle_object_id": [str(pay_settle_object_id)] if pay_settle_object_id else [],
+            "operate_type": PAY_DEMAND_OPERATE_TYPE,
+            "batch_type": PAY_DEMAND_BATCH_TYPE,
+            "search_style": PAY_DEMAND_SEARCH_STYLE,
+            "customer_id": "",
+            "put_settle_object_id": "",
+        }
+
+    @classmethod
+    def build_payment_list_payload(
+        cls,
+        pay_list_data: Dict[str, Any],
+        select_amount: str,
+        cost_usd: str,
+        cost_cny: str,
+        split_dimension: List[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        构建 paymentList 请求体（付款需求预览）
+
+        该接口为中间预览步骤，返回 payment_list 及汇总数据供 Step 3 使用。
+
+        Args:
+            pay_list_data    : financePayList 响应中的 data 字典
+            select_amount    : 选中金额（sum of real_amount）
+            cost_usd        : 美元总额
+            cost_cny        : 人民币总额
+            split_dimension  : 拆分维度列表（默认从 YAML 读取）
+
+        Returns:
+            请求体字典
+        """
+        import time as _time
+
+        if split_dimension is None:
+            split_dimension = PAY_DEMAND_SPLIT_DIMENSION
+
+        select_list = cls._build_select_list(pay_list_data)
+
+        return {
+            "operation_type": PAY_DEMAND_OPERATION_TYPE,
+            "pay_demand_name": "",
+            "customer_id": "",
+            "put_settle_object_id": "",
+            "main_id": None,
+            "pay_settle_object_id": "",
+            "select_list": select_list,
+            "split_dimension": split_dimension,
+            "demand_remark": "",
+            "cost_usd": cost_usd,
+            "cost_cny": cost_cny,
+        }
+
+    @classmethod
+    def build_demand_edit_payload(
+        cls,
+        pay_list_data: Dict[str, Any],
+        payment_list_data: Dict[str, Any],
+        split_dimension: List[str] = None,
+        select_node_user: List[Dict[str, Any]] = None,
+        bl_nos: List[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        构建 demandEditByOrder 请求体（提交付款需求）
+
+        Step 3 请求体包含 Step 2 响应的全部字段。
+
+        Args:
+            pay_list_data       : financePayList 响应中的 data 字典
+            payment_list_data   : paymentList 响应中的 data 字典
+            split_dimension     : 拆分维度列表（默认从 YAML 读取）
+            select_node_user    : 审批节点用户（默认从 YAML + .env 读取）
+            bl_nos             : 提单号列表（默认单元素列表）
+
+        Returns:
+            请求体字典
+        """
+        import time as _time
+
+        if split_dimension is None:
+            split_dimension = PAY_DEMAND_SPLIT_DIMENSION
+        if bl_nos is None:
+            bl_nos = []
+
+        # Step 1: 构建 select_list（与 paymentList 一致）
+        select_list = cls._build_select_list(pay_list_data)
+
+        # Step 2: 从 paymentList 响应提取汇总数据
+        payment_list = payment_list_data.get("payment_list", []) or []
+        pay_amount_cny_total = payment_list_data.get("pay_amount_cny_total", "0.00")
+        pay_amount_usd_total = payment_list_data.get("pay_amount_usd_total", "0.00")
+        system_exchange_rate = payment_list_data.get("system_exchange_rate", "7.7000")
+        exchange_amount_total = payment_list_data.get("exchange_amount_total", "0.00")
+        pay_settle_object_total = payment_list_data.get("pay_settle_object_total", 1)
+
+        # Step 3: 计算 select_amount / cost_usd / cost_cny
+        select_amount, cost_usd, cost_cny = cls._calc_cost_totals(select_list)
+
+        # Step 4: 构建 payment_list（含 _XID 索引）
+        payment_list_with_xid = cls._build_payment_list_with_xid(payment_list)
+
+        # Step 5: 构建 all_money_data / right_money_data
+        all_money_data = cls._build_money_data(select_amount, cost_usd, cost_cny, exchange_amount_total)
+        right_money_data = all_money_data.copy()
+
+        # Step 6: 获取 fee_currency（从 select_list 第一条记录）
+        fee_currency = cls._get_fee_currency(select_list)
+
+        # Step 7: select_node_user
+        if select_node_user is None:
+            select_node_user = cls._build_select_node_user()
+
+        # Step 8: audit_msg
+        audit_msg = PAY_DEMAND_AUDIT_MSG.copy()
+
+        return {
+            "operation_type": PAY_DEMAND_OPERATION_TYPE,
+            "pay_demand_name": "",
+            "customer_id": "",
+            "put_settle_object_id": "",
+            "main_id": [str(m.get("main_id", "")) for m in select_list if m.get("main_id")],
+            "pay_settle_object_id": [str(p.get("pay_settle_object_id", "")) for p in select_list if p.get("pay_settle_object_id")],
+            "select_list": select_list,
+            "select_amount": select_amount,
+            "split_dimension": split_dimension,
+            "demand_remark": "",
+            "cost_usd": cost_usd,
+            "cost_cny": cost_cny,
+            "pay_amount_cny_total": pay_amount_cny_total,
+            "pay_amount_usd_total": pay_amount_usd_total,
+            "system_exchange_rate": system_exchange_rate,
+            "exchange_amount_total": exchange_amount_total,
+            "pay_settle_object_total": pay_settle_object_total,
+            "payment_list": payment_list_with_xid,
+            "pay_form_count": f"审核通过后将生成{len(payment_list_with_xid)}个付款单，其中{len(payment_list_with_xid)}为预计拆分付款单数量（根据圈选费用、拆分维度计算）",
+            "action": PAY_DEMAND_ACTION_SUBMIT,
+            "select_node_user": select_node_user,
+            "fee_currency": fee_currency,
+            "all_money_data": all_money_data,
+            "right_money_data": right_money_data,
+            "bl_nos": bl_nos,
+            "audit_msg": audit_msg,
+        }
+
+    @classmethod
+    def _build_select_list(cls, pay_list_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        从 financePayList 响应构建 select_list
+
+        直接透传所有字段，不做转换，确保与后端期望一致。
+        """
+        result = []
+        records = pay_list_data.get("data", [])
+        for record in records:
+            amount_list = record.get("amount_list", [])
+            result.append({
+                "order_id": record.get("order_id"),
+                "order_no": record.get("order_no"),
+                "bl_no": record.get("bl_no"),
+                "customer_id": record.get("customer_id"),
+                "customer_name": record.get("customer_name"),
+                "customer_main_id": record.get("customer_main_id"),
+                "customer_main_name": record.get("customer_main_name"),
+                "business_main_id": record.get("business_main_id"),
+                "business_main_name": record.get("business_main_name"),
+                "policy_type": record.get("policy_type"),
+                "trade_term": record.get("trade_term"),
+                "customer_period": record.get("customer_period"),
+                "customer_put_date": record.get("customer_put_date"),
+                "atd": record.get("atd"),
+                "etd": record.get("etd"),
+                "create_time": record.get("create_time"),
+                "finance_date": record.get("finance_date"),
+                "ship_name": record.get("ship_name"),
+                "voy": record.get("voy"),
+                "fund_name": record.get("fund_name"),
+                "status": record.get("status"),
+                "is_special_pay": record.get("is_special_pay"),
+                "pay_status": record.get("pay_status"),
+                "is_loan_before_invoice": record.get("is_loan_before_invoice"),
+                "customer_order_sn": record.get("customer_order_sn"),
+                "order_sub_id": record.get("order_sub_id"),
+                "order_sub_no": record.get("order_sub_no"),
+                "main_id": record.get("main_id"),
+                "main_name": record.get("main_name"),
+                "currency": record.get("currency"),
+                "amount_total": record.get("amount_total"),
+                "service_project": record.get("service_project"),
+                "pay_settle_object_type": record.get("pay_settle_object_type"),
+                "real_settle_object_id": record.get("real_settle_object_id"),
+                "real_settle_object": record.get("real_settle_object"),
+                "put_settle_object": record.get("put_settle_object"),
+                "put_settle_object_id": record.get("put_settle_object_id"),
+                "pay_settle_object": record.get("pay_settle_object"),
+                "pay_settle_object_id": record.get("pay_settle_object_id"),
+                "book_supplier_period": record.get("book_supplier_period"),
+                "book_supplier_pay_date": record.get("book_supplier_pay_date"),
+                "book_supplier_name": record.get("book_supplier_name"),
+                "operable_amount": record.get("operable_amount"),
+                "un_operable_amount": record.get("un_operable_amount"),
+                "operable_flag": record.get("operable_flag"),
+                "order_sub_currency": record.get("order_sub_currency"),
+                "order_main_finance": record.get("order_main_finance"),
+                "order_error_messages": record.get("order_error_messages", []),
+                "order_error_message": record.get("order_error_message", ""),
+                "order_error_flag": record.get("order_error_flag", False),
+                "amount_list": amount_list,
+                "select_amount": cls._calc_select_amount(amount_list),
+            })
+        return result
+
+    @classmethod
+    def _calc_select_amount(cls, amount_list: List[Dict[str, Any]]) -> str:
+        """从 amount_list 计算 select_amount（选中金额）"""
+        total = 0.0
+        for item in amount_list:
+            try:
+                total += float(item.get("real_amount", 0) or 0)
+            except (TypeError, ValueError):
+                pass
+        return f"{total:.2f}"
+
+    @classmethod
+    def _calc_cost_totals(
+        cls,
+        select_list: List[Dict[str, Any]],
+    ) -> tuple:
+        """
+        从 select_list 计算 cost_usd / cost_cny
+
+        Returns:
+            (select_amount, cost_usd, cost_cny)
+        """
+        cost_usd = 0.0
+        cost_cny = 0.0
+
+        for record in select_list:
+            currency = record.get("currency", "USD")
+            amount_str = record.get("select_amount") or record.get("amount_total", "0.00")
+            try:
+                amount = float(amount_str)
+            except (TypeError, ValueError):
+                amount = 0.0
+
+            if currency == "USD":
+                cost_usd += amount
+            else:
+                cost_cny += amount
+
+        return (
+            f"{cost_usd + cost_cny:.2f}",
+            f"{cost_usd:.2f}",
+            f"{cost_cny:.2f}",
+        )
+
+    @classmethod
+    def _build_payment_list_with_xid(
+        cls,
+        payment_list: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """
+        为 payment_list 添加 _XID 字段
+
+        _XID = "row_{索引}" 格式
+        """
+        result = []
+        for idx, item in enumerate(payment_list):
+            new_item = item.copy()
+            new_item["_XID"] = f"row_{idx}"
+            result.append(new_item)
+        return result
+
+    @classmethod
+    def _build_money_data(
+        cls,
+        select_amount: str,
+        cost_usd: str,
+        cost_cny: str,
+        exchange_amount_total: str,
+    ) -> Dict[str, Any]:
+        """
+        构建 all_money_data / right_money_data
+
+        金额汇总计算逻辑：
+          totalAmount = cost_usd * 汇率 + cost_cny
+        """
+        try:
+            cost_usd_float = float(cost_usd or 0)
+            cost_cny_float = float(cost_cny or 0)
+            exchange_rate = float(exchange_amount_total) / cost_usd_float if cost_usd_float else 7.7
+        except (TypeError, ValueError, ZeroDivisionError):
+            exchange_rate = 7.7
+
+        if cost_cny_float == 0:
+            total_text = f"USD {cost_usd} + CNY 0.00"
+        elif cost_usd_float == 0:
+            total_text = f"USD 0.00 + CNY {cost_cny}"
+        else:
+            total_text = f"USD {cost_usd} + CNY {cost_cny}"
+
+        operable_text = total_text
+
+        try:
+            total_amount = round(cost_usd_float * exchange_rate + cost_cny_float, 2)
+        except (TypeError, ValueError):
+            total_amount = 0.0
+
+        return {
+            "totalAmount": f"{total_amount:.2f}",
+            "total_text": total_text,
+            "operable_text": operable_text,
+        }
+
+    @classmethod
+    def _get_fee_currency(cls, select_list: List[Dict[str, Any]]) -> str:
+        """从 select_list 第一条记录获取 fee_currency"""
+        if select_list:
+            first_record = select_list[0]
+            currency = first_record.get("currency", "USD")
+            if currency:
+                return currency
+        return "USD"
+
+    @classmethod
+    def _build_select_node_user(cls) -> List[Dict[str, Any]]:
+        """
+        构建 select_node_user
+
+        user_id 从 .env 的 ORDER_CREATE_ID 读取。
+        """
+        from dotenv import load_dotenv
+        import os
+
+        load_dotenv()
+        user_id = os.getenv("ORDER_CREATE_ID", "60")
+
+        return [{
+            "node_sort": 0,
+            "user_id": str(user_id),
+        }]
+
+
+# ========================================================================
+# 审核生成付款单 - 配置与数据构建（LK24）
+# ========================================================================
+# 链路结构：
+#   step1: auditPage       - 查询待审核列表
+#   step2: auditExecute - 执行审批（通过）
+# ========================================================================
+
+def _load_yaml_audit(name: str) -> Dict[str, Any]:
+    """加载审核配置 YAML"""
+    path = Path(__file__).parent / f"{name}.yaml"
+    if not path.exists():
+        raise FileNotFoundError(f"配置文件不存在: {path}")
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+
+_AUDIT_CFG = _load_yaml_audit("pay_demand_audit")
+_AUDIT_CONST = _AUDIT_CFG.get("_constants", {}) if _AUDIT_CFG else {}
+_AUDIT_PAGE_CFG = _AUDIT_CFG.get("audit_page", {}) if _AUDIT_CFG else {}
+_AUDIT_EXEC_CFG = _AUDIT_CFG.get("audit_execute", {}) if _AUDIT_CFG else {}
+
+
+class PayDemandAuditData:
+    """
+    审核生成付款单（LK24）数据类
+
+    涉及 2 个接口：
+      1. auditPage      - 查询待审核列表
+      2. auditExecute - 执行审批（通过）
+    """
+
+    @classmethod
+    def get_audit_page_payload(
+        cls,
+        page_no: int = None,
+        page_size: int = None,
+        audit_status: List[str] = None,
+        expedite_status: List[str] = None,
+        create_id: List[str] = None,
+        main_id: List[str] = None,
+        active_tab: str = None,
+        audit_type: List[str] = None,
+        sort_field: str = None,
+        sort_order: str = None,
+    ) -> Dict[str, Any]:
+        """
+        构建 auditPage 查询请求体
+
+        Args:
+            page_no           : 页码（默认 1）
+            page_size        : 每页数量（默认 20）
+            audit_status     : 审批状态列表（默认空数组）
+            expedite_status  : 催办状态列表（默认空数组）
+            create_id        : 创建人ID列表（默认空数组）
+            main_id          : 主体ID列表（默认空数组）
+            active_tab       : 标签（默认 examine_wait）
+            audit_type       : 审批类型列表（默认 [payDemand]）
+            sort_field       : 排序字段（默认 expedite_num）
+            sort_order       : 排序方向（默认 desc）
+
+        Returns:
+            请求体字典
+        """
+        if page_no is None:
+            page_no = _AUDIT_CONST.get("page_no", 1)
+        if page_size is None:
+            page_size = _AUDIT_CONST.get("page_size", 20)
+        if active_tab is None:
+            active_tab = _AUDIT_PAGE_CFG.get("active_tab", "examine_wait")
+        if audit_type is None:
+            audit_type = _AUDIT_PAGE_CFG.get("audit_type", ["payDemand"])
+        if sort_field is None:
+            sort_field = _AUDIT_PAGE_CFG.get("sort_field", "expedite_num")
+        if sort_order is None:
+            sort_order = _AUDIT_PAGE_CFG.get("sort_order", "desc")
+        if audit_status is None:
+            audit_status = []
+        if expedite_status is None:
+            expedite_status = []
+        if create_id is None:
+            create_id = []
+        if main_id is None:
+            main_id = []
+
+        return {
+            "page_no": page_no,
+            "page_size": page_size,
+            "audit_status": audit_status,
+            "expedite_status": expedite_status,
+            "create_id": create_id,
+            "main_id": main_id,
+            "active_tab": active_tab,
+            "audit_type": audit_type,
+            "sort_field": sort_field,
+            "sort_order": sort_order,
+            "params": {},
+        }
+
+    @classmethod
+    def get_audit_execute_payload(
+        cls,
+        audit_ids: List[str],
+        audit_status: int = None,
+        audit_remark: Any = None,
+        transfer_user_id: Any = None,
+    ) -> Dict[str, Any]:
+        """
+        构建 auditExecute 执行审批请求体
+
+        Args:
+            audit_ids      : 审批ID列表（**必填**）
+            audit_status  : 审批状态（默认 2=通过）
+            audit_remark  : 审批备注（默认 None）
+            transfer_user_id: 转交用户ID（默认 None）
+
+        Returns:
+            请求体字典
+        """
+        if audit_status is None:
+            audit_status = _AUDIT_EXEC_CFG.get("audit_status", 2)
+
+        return {
+            "audit_ids": [str(aid) for aid in audit_ids],
+            "audit_status": audit_status,
+            "audit_remark": audit_remark,
+            "transfer_user_id": transfer_user_id,
+        }
+
+
