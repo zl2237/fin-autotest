@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 chcp 65001 >nul 2>nul
 echo ============================================================
 echo   PRStudy Build Script
@@ -21,13 +22,11 @@ if errorlevel 1 (
 if exist "build" rmdir /s /q "build"
 
 echo [INFO] Preparing runtime resources...
-if exist "dist\jre" (
-    echo [INFO] Copying dist\jre to project root...
-    xcopy /E /I /Y "dist\jre" "jre" >nul
+if exist "resources\jre" (
+    echo [INFO] resources\jre found
 )
-if exist "dist\allure" (
-    echo [INFO] Copying dist\allure to project root...
-    xcopy /E /I /Y "dist\allure" "allure" >nul
+if exist "resources\allure" (
+    echo [INFO] resources\allure found
 )
 
 echo [INFO] Building...
@@ -53,11 +52,35 @@ if exist "dist\PRStudy\PRStudy.exe" (
         echo [WARN] testcases directory not found.
     )
 
+    echo [INFO] Copying user guide...
+    if exist "resources\README.md" (
+        copy /Y "resources\README.md" "dist\PRStudy\README.md" >nul
+        echo [INFO] User guide copied to dist\PRStudy\README.md
+    )
+
+    echo [INFO] Creating report directory...
+    if not exist "dist\PRStudy\report" mkdir "dist\PRStudy\report"
+    if not exist "dist\PRStudy\report\allure-results" mkdir "dist\PRStudy\report\allure-results"
+
     echo.
     echo ============================================================
     echo   Build complete!
     echo   Output: dist\PRStudy\PRStudy.exe
     echo ============================================================
+    echo.
+
+    :: Ask if user wants to create zip package
+    set /p CREATE_ZIP="Do you want to create a ZIP package for distribution? (Y/N): "
+    if /i "!CREATE_ZIP!"=="Y" (
+        echo [INFO] Creating ZIP package...
+        powershell -Command "Compress-Archive -Path 'dist\PRStudy' -DestinationPath 'dist\PRStudy-v1.0.zip' -Force"
+        if exist "dist\PRStudy-v1.0.zip" (
+            echo [INFO] ZIP package created: dist\PRStudy-v1.0.zip
+            for %%A in ("dist\PRStudy-v1.0.zip") do echo [INFO] Package size: %%~zA bytes
+        ) else (
+            echo [ERROR] Failed to create ZIP package.
+        )
+    )
 ) else (
     echo.
     echo [ERROR] Build failed.
