@@ -18,7 +18,7 @@ asset_push:
       - "资产推送申请"
   select_node_user:
     - node_sort: "0"
-      user_id: "60"
+      user_id: "${ORDER_CREATE_ID}"
 
 # ========================================================================
 # 审批流配置 - 订单锁定审批
@@ -31,7 +31,7 @@ actual_cost_lock:
       - "订单锁定"
   select_node_user:
     - node_sort: "0"
-      user_id: "60"
+      user_id: "${ORDER_CREATE_ID}"
   box_no_continue: false
   check_self_fee_status: false
 
@@ -46,7 +46,7 @@ add_loan_before_invoice:
       - "未放款开票申请"
   select_node_user:
     - node_sort: "0"
-      user_id: "60"
+      user_id: "${ORDER_CREATE_ID}"
 
 # ========================================================================
 # 审批流配置 - 供应商垫付申请审批
@@ -59,4 +59,4 @@ add_special_payment_flag:
       - "供应商垫付申请"
   select_node_user:
     - node_sort: "0"
-      user_id: "60"
+      user_id: "${ORDER_CREATE_ID}"

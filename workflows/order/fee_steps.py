@@ -11,6 +11,7 @@ import allure
 from api.order import AuditApi, OrderApi
 from core.http_client import http
 from data.order import BookRealAmountData
+from workflows.order.audit_steps import _loop_approve_until_done
 
 
 def record_fee(
@@ -78,45 +79,25 @@ def record_fee(
                     "msg": send_data.get("msg"),
                 })
 
-            # 2) 查询审批ID
-            with allure.step(f'[资产推送] 查询审批ID({i + 1}): {audit_type}'):
-                query_resp = AuditApi.query_pending_audits(
+            # 2) 循环审批直到结束（沿用 query_active_tab 默认值）
+            with allure.step(f'[资产推送] 循环审批通过({i + 1}): {audit_type}'):
+                approve_results = _loop_approve_until_done(
                     audit_type=audit_type,
-                    audit_status=["1"],
-                    page_no=1,
-                    page_size=1,
+                    query_step_name=f'查询审批ID({i + 1})',
+                    approve_step_name=f'审批通过({i + 1})',
                 )
-                query_data = query_resp.json()
-                records = query_data.get("data", {}).get("data", [])
-                first = records[0] if records else {}
-                audit_id = first.get("audit_id", "")
-
-            # 3) 审批通过
-            with allure.step(f'[资产推送] 审批通过({i + 1}): {audit_type}'):
-                approve_resp = AuditApi.audit_execute(
-                    audit_ids=[audit_id] if audit_id else [],
-                    audit_status=2,
-                )
-                approve_data = approve_resp.json()
-                result["steps"].append({
-                    "name": f"查询审批ID({i + 1})",
-                    "code": query_data.get("code"),
-                    "msg": query_data.get("msg"),
-                    "audit_id": audit_id,
-                })
-                result["steps"].append({
-                    "name": f"审批通过({i + 1})",
-                    "code": approve_data.get("code"),
-                    "msg": approve_data.get("msg"),
-                })
+                for ar in approve_results:
+                    result["steps"].append(ar["query_step"])
+                    result["steps"].append(ar["approve_step"])
 
             result["results"][i]["audit_send_resp"] = send_resp
             result["results"][i]["audit_send_data"] = send_data
-            result["results"][i]["audit_query_resp"] = query_resp
-            result["results"][i]["audit_query_data"] = query_data
-            result["results"][i]["audit_id"] = audit_id
-            result["results"][i]["audit_approve_resp"] = approve_resp
-            result["results"][i]["audit_approve_data"] = approve_data
+            result["results"][i]["approve_results"] = approve_results
+            if approve_results:
+                first = approve_results[0]
+                result["results"][i]["audit_id"] = first["audit_id"]
+                result["results"][i]["audit_approve_resp"] = first["approve_resp"]
+                result["results"][i]["audit_approve_data"] = first["approve_data"]
 
     return result
 

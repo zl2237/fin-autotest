@@ -1,16 +1,16 @@
 """
 审核生成付款单步骤（LK24）：
 
-  audit_page → audit_execute
+  audit_page → audit_execute → (loop until no more records)
 
 LK24 = LK23 + 审核生成付款单。
 链路复用 link23 产生的 bl_no，不生成新提单号。
 
 流程：
-  Step 1: auditPage       - 查询待审核列表（重试 3 次，等审批数据同步）
-  Step 2: auditExecute - 执行审批（通过）
+  Step 1: audit_page  - 查询待审核列表（重试最多 3 次，等审批数据同步）
+  Step 2-N: audit_execute - 循环审批通过，直至审批流结束
 """
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import allure
 
@@ -105,26 +105,48 @@ def audit_pay_demand(
             f'审批类型应为 payDemand，实际为: {audit_type}'
         )
 
-    # Step 2: auditExecute - 执行审批（通过）
-    with allure.step('执行审批（auditExecute）'):
-        audit_execute_resp = PayDemandAuditApi.audit_execute(
-            audit_ids=[audit_id],
-        )
-        audit_execute_data = audit_execute_resp.json()
-        result['audit_execute_resp'] = audit_execute_resp
-        result['audit_execute_data'] = audit_execute_data
-        result['steps'].append({
-            'name': '执行审批',
-            'code': audit_execute_data.get('code'),
-            'msg': audit_execute_data.get('msg'),
-            'audit_id': audit_id,
-        })
+    # Step 2-N: audit_execute - 循环审批通过，直至审批流结束
+    with allure.step('循环审批通过: payDemand'):
+        approve_results: List[Dict[str, Any]] = []
+        for i in range(1, 21):
+            # 每次审批前重新查询，确保拿到最新待审批记录
+            for attempt in range(1, 4):
+                audit_page_resp = PayDemandAuditApi.audit_page()
+                audit_page_data = audit_page_resp.json()
+                records = audit_page_data.get('data', {}).get('data', [])
+                if records:
+                    break
+                if attempt < 3:
+                    import time as _time
+                    _time.sleep(2)
 
-        assert audit_execute_resp.status_code == 200, (
-            f'HTTP 状态码异常: {audit_execute_resp.status_code}'
-        )
-        assert audit_execute_data.get('code') == 200, (
-            f'auditExecute 失败: {audit_execute_data}'
-        )
+            if not records:
+                break  # 审批流已结束
+
+            first = records[0]
+            audit_id = str(first.get('audit_id', ''))
+            if not audit_id:
+                break
+
+            with allure.step(f'审批通过(节点 {i}): payDemand'):
+                audit_execute_resp = PayDemandAuditApi.audit_execute(
+                    audit_ids=[audit_id],
+                )
+                audit_execute_data = audit_execute_resp.json()
+                approve_results.append({
+                    'node_index': i,
+                    'audit_id': audit_id,
+                    'audit_execute_resp': audit_execute_resp,
+                    'audit_execute_data': audit_execute_data,
+                })
+
+        result['approve_results'] = approve_results
+        for ar in approve_results:
+            result['steps'].append({
+                'name': f"审批通过({ar['node_index']})",
+                'code': ar['audit_execute_data'].get('code'),
+                'msg': ar['audit_execute_data'].get('msg'),
+                'audit_id': ar['audit_id'],
+            })
 
     return result

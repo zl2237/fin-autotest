@@ -11,7 +11,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # 尝试加载 .env 文件
 _env_file = BASE_DIR / ".env"
 if _env_file.exists():
-    # 指定 .env 文件的绝对路径
     load_dotenv(_env_file, override=True)
     print(f"[INFO] 已加载环境变量文件: {_env_file}")
 else:

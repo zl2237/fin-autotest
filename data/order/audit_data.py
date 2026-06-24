@@ -1,14 +1,34 @@
 """
 审批流测试数据 - 按审批类型组织，后端生成审批单号
 """
+import os
+import re
 import time as _time
 import random as _random
 from typing import Any, Dict, List
 
-import os
 import yaml as _yaml
 
-_AUDIT_CFG = _yaml.safe_load(open(os.path.join(os.path.dirname(__file__), "audit.yaml"), encoding="utf-8"))
+
+def _resolve_env_vars(obj: Any) -> Any:
+    """递归将 dict/list/str 中的 ${VAR} 替换为同名环境变量值"""
+    if isinstance(obj, dict):
+        return {k: _resolve_env_vars(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_resolve_env_vars(item) for item in obj]
+    if isinstance(obj, str):
+        # 支持 ${VAR} 语法，替换为环境变量值
+        def _replace(m):
+            var_name = m.group(1)
+            return os.environ.get(var_name, obj)  # 若环境变量不存在，保留原值
+        return re.sub(r'\$\{(\w+)\}', _replace, obj)
+    return obj
+
+
+# 读取 YAML 后立即做环境变量替换（GUI 通过 .env 写入 ORDER_CREATE_ID）
+_audit_yaml_path = os.path.join(os.path.dirname(__file__), "audit.yaml")
+with open(_audit_yaml_path, encoding="utf-8") as _f:
+    _AUDIT_CFG = _resolve_env_vars(_yaml.safe_load(_f))
 
 
 class AuditFlowData:

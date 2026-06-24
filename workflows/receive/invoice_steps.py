@@ -6,11 +6,12 @@
 """
 import json
 import time as _time
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 
 import allure
 
 from api.order import AuditApi
+from workflows.order.audit_steps import _loop_approve_until_done
 
 
 def record_invoice_batch(
@@ -277,7 +278,7 @@ def record_invoice_batch_audit(
     batch_id: str,
 ) -> Dict[str, Any]:
     """
-    审核生成开票申请（查询审批ID → 审批通过）
+    审核生成开票申请（循环审批通过，直至审批流结束）
 
     Args:
         batch_id: 开票批次ID（来自 record_invoice_batch 响应中的 batch_id）
@@ -285,11 +286,7 @@ def record_invoice_batch_audit(
     Returns:
         {
             'batch_id': str,
-            'audit_query_resp': Response,
-            'audit_query_data': dict,
-            'audit_id': str,
-            'audit_execute_resp': Response,
-            'audit_execute_data': dict,
+            'approve_results': [...],
             'steps': [...],
         }
     """
@@ -298,49 +295,30 @@ def record_invoice_batch_audit(
         "steps": [],
     }
 
-    # Step 1: auditPage - 查询开票批次审批ID
-    with allure.step('查询应收开票批次审批ID（auditPage）'):
-        query_resp = AuditApi.query_invoice_batch_audit(
+    # 循环审批直到结束
+    with allure.step('循环审批通过: invoiceBatchApplication'):
+        approve_results = _loop_approve_until_done(
+            audit_type='invoiceBatchApplication',
             relation_id=batch_id,
-            audit_status=["1"],
-            page_no=1,
-            page_size=1,
-            active_tab="examine_wait",
+            active_tab='examine_wait',
         )
-        query_data = query_resp.json()
-        result['audit_query_resp'] = query_resp
-        result['audit_query_data'] = query_data
+        result['approve_results'] = approve_results
 
-        records = query_data.get("data", {}).get("data", []) or []
-        first = records[0] if records else {}
-        audit_id = first.get("audit_id", "")
-        result['audit_id'] = audit_id
-        result['steps'].append({
-            'name': '查询应收开票批次审批ID',
-            'code': query_data.get('code'),
-            'msg': query_data.get('msg'),
-            'audit_id': audit_id,
-            'audit_count': len(records),
-        })
+        if not approve_results:
+            raise AssertionError(
+                f'未查到开票批次审批记录，batch_id={batch_id}'
+            )
 
-        if not audit_id:
-            raise AssertionError(f'未查到开票批次审批记录，batch_id={batch_id}，响应: {query_data}')
+        first = approve_results[0]
+        result['audit_query_resp'] = first.get('query_resp')  # 旧兼容（可能为 None）
+        result['audit_query_data'] = first['query_data']
+        result['audit_id'] = first['audit_id']
+        result['audit_execute_resp'] = first['approve_resp']
+        result['audit_execute_data'] = first['approve_data']
 
-    # Step 2: auditExecute - 审批通过
-    with allure.step('审批通过应收开票批次（auditExecute）'):
-        execute_resp = AuditApi.audit_execute(
-            audit_ids=[audit_id],
-            audit_status=2,
-        )
-        execute_data = execute_resp.json()
-        result['audit_execute_resp'] = execute_resp
-        result['audit_execute_data'] = execute_data
-        result['steps'].append({
-            'name': '审批通过应收开票批次',
-            'code': execute_data.get('code'),
-            'msg': execute_data.get('msg'),
-            'audit_id': audit_id,
-        })
+        for ar in approve_results:
+            result['steps'].append(ar['query_step'])
+            result['steps'].append(ar['approve_step'])
 
     return result
 

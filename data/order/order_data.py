@@ -145,7 +145,17 @@ class BookRealAmountData:
 
 def generate_bl_no(num) -> str:
     now = datetime.now()
-    return f"lele_api_link{num}_{now.strftime('%Y%m%d%H%M%S')}"
+    # 优先读取 GUI 昵称作为提单号前缀
+    nickname_file = Path.cwd() / ".gui_nickname.txt"
+    prefix = "lele"
+    try:
+        if nickname_file.exists():
+            content = nickname_file.read_text(encoding="utf-8").strip()
+            if content:
+                prefix = content
+    except Exception:
+        pass
+    return f"{prefix}_link{num}_{now.strftime('%Y%m%d%H%M%S')}"
 
 
 # ========================================================================
