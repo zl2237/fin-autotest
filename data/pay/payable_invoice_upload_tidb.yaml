@@ -19,13 +19,13 @@ _constants:
   # invoiceAdd 发票类型名称
   invoice_type_name: "增值税数电普通发票"
   # 发票金额（默认，与 usd_amount 保持一致，currency=USD）
-  invoice_amount: "1260"
+  invoice_amount: "180"
   # 发票税额
   invoice_tax_amount: "0.00"
   # 汇率（与 batch_order_edit_pay.default_exchange_rate 一致）
   invoice_exchange_rate: "7.0000"
   # USD 金额（默认，与 invoice_amount 一致，currency=USD）
-  usd_amount: "1260"
+  usd_amount: "180"
   # buyer_identity：购买方身份（main=主体，customer=客户）
   buyer_identity: "main"
   # seller_identity：销售方身份（supplier=供应商）

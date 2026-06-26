@@ -11,7 +11,7 @@ from typing import Any, Dict, List
 import allure
 
 from api.pay.pay_invoice_register_api import PayInvoiceRegisterApi
-from data.pay import PayableInvoiceUploadData
+from data.pay import PayableInvoiceUploadData, _UPLOAD_CFG
 
 
 def record_payable_invoice_upload(
@@ -92,7 +92,7 @@ def record_payable_invoice_upload(
     if invoice_number is None:
         invoice_number = _generate_unique_invoice_number(prefix="PAY_INV")
     if invoice_amount is None:
-        invoice_amount = "1260"
+        invoice_amount = _UPLOAD_CFG.get("_constants", {}).get("invoice_amount", "1260")
 
     with allure.step('登记应付发票（invoiceAdd）'):
         add_resp = PayInvoiceRegisterApi.invoice_add(
