@@ -133,7 +133,7 @@ pr_study/
 ### 1. 克隆项目
 
 ```bash
-git clone <repo-url>
+git clone http://172.16.18.55:88/root/pr_study.git
 cd pr_study
 ```
 
@@ -260,7 +260,7 @@ python run.py
 ```bash
 # 通过 scp / git clone 上传到 /opt/pr_study
 cd /opt/pr_study
-git clone <repo-url> .  # 或 scp -r
+git clone http://172.16.18.55:88/root/pr_study.git  # 或 scp -r
 ```
 
 ### 步骤 2：安装后端依赖

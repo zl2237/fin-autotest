@@ -33,6 +33,14 @@
             @keyup.enter="handleLogin"
           />
         </el-form-item>
+        <el-form-item label="用户ID">
+          <el-input
+            v-model="form.user_id"
+            placeholder="请输入用户ID（用于审批流节点配置）"
+            size="large"
+            @keyup.enter="handleLogin"
+          />
+        </el-form-item>
         <el-form-item style="margin-top: 24px">
           <el-button
             type="primary"
@@ -59,21 +67,22 @@ import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const auth = useAuthStore()
-const form = reactive({ username: '', password: '' })
+const form = reactive({ username: '', password: '', user_id: '' })
 const loading = ref(false)
 
 async function handleLogin() {
-  if (!form.username || !form.password) return
+  if (!form.username || !form.password || !form.user_id) return
   loading.value = true
   try {
     const { data } = await request.post('/auth/login', form)
     if (data.ok) {
       auth.login(form.username, data.token)
       ElMessage.success(`欢迎回来，${form.username}`)
-      router.push({ name: 'Dashboard' })
+      router.push({ name: 'Home' })
     }
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || '登录失败，请检查网络')
+    const message = e?.response?.data?.message || e?.message || '登录失败，请检查网络'
+    ElMessage.error(message)
   } finally {
     loading.value = false
   }

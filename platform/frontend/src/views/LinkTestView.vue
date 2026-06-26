@@ -56,9 +56,12 @@
           </el-menu-item>
         </el-sub-menu>
       </el-menu>
+    </aside>
 
+    <!-- 主内容区 -->
+    <div class="main">
       <!-- 警告提示 -->
-      <div class="sidebar-warning">
+      <div class="warning-banner">
         <el-alert
           type="warning"
           :closable="false"
@@ -74,13 +77,13 @@
       </div>
 
       <!-- 配置卡片区 -->
-      <div class="sidebar-configs">
+      <div class="config-cards">
         <!-- 环境配置 -->
         <el-card class="cfg-card" shadow="hover">
           <template #header>
             <div class="card-header">
               <el-icon><Monitor /></el-icon>
-              <span v-show="!sidebarCollapsed">环境配置</span>
+              <span>环境配置</span>
             </div>
           </template>
           <el-form label-position="top" size="small">
@@ -111,7 +114,7 @@
           <template #header>
             <div class="card-header">
               <el-icon><User /></el-icon>
-              <span v-show="!sidebarCollapsed">测试账号</span>
+              <span>测试账号</span>
             </div>
           </template>
           <el-form label-position="top" size="small">
@@ -148,7 +151,7 @@
           <template #header>
             <div class="card-header">
               <el-icon><Setting /></el-icon>
-              <span v-show="!sidebarCollapsed">执行配置</span>
+              <span>执行配置</span>
             </div>
           </template>
           <el-form label-position="top" size="small">
@@ -188,10 +191,7 @@
           </el-form>
         </el-card>
       </div>
-    </aside>
 
-  <!-- 主内容区 -->
-  <div class="main">
       <!-- 执行按钮 -->
       <div class="execute-section">
         <button
@@ -208,8 +208,8 @@
         </button>
       </div>
 
-      <!-- 右侧结果 + 日志 -->
-      <main class="content">
+      <!-- 结果 + 日志 -->
+      <div class="bottom-panels">
         <!-- 执行结果卡片 -->
         <el-card class="result-card" shadow="hover">
           <template #header>
@@ -299,7 +299,7 @@
             <div v-if="running" class="log-cursor">_</div>
           </div>
         </el-card>
-      </main>
+      </div>
     </div>
   </div>
 </template>
@@ -582,103 +582,100 @@ onMounted(() => {
   line-height: 44px;
 }
 
+/* 主内容区 */
+.main {
+  flex: 1;
+  margin-left: 280px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: margin-left 0.3s ease;
+}
+
 /* 警告提示 */
-.sidebar-warning {
-  padding: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+.warning-banner {
+  background: rgba(255,255,255,0.95);
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
 }
 :deep(.el-alert--warning) {
-  background: rgba(230,162,60,0.15);
-  border: 1px solid rgba(230,162,60,0.3);
+  background: #fffbe6;
+  border: 1px solid #ffe58f;
   border-radius: 8px;
 }
 :deep(.el-alert--warning .el-alert__icon) {
-  color: #e6a23c;
+  color: #faad14;
   font-size: 16px;
 }
 :deep(.el-alert--warning .el-alert__title) {
-  color: #fff;
-  font-size: 13px;
+  color: #d48806;
+  font-size: 14px;
 }
 :deep(.el-alert--warning .el-alert__description) {
-  color: rgba(255,255,255,0.75);
-  font-size: 12px;
+  color: #ad6800;
+  font-size: 13px;
+  line-height: 1.6;
 }
 .warning-title {
   font-weight: 600;
 }
 .warning-text {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
 /* 配置卡片区 */
-.sidebar-configs {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.config-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
 }
-.sidebar-configs::-webkit-scrollbar {
-  width: 4px;
-}
-.sidebar-configs::-webkit-scrollbar-track {
-  background: rgba(255,255,255,0.05);
-}
-.sidebar-configs::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.2);
-  border-radius: 2px;
-}
-
 .cfg-card {
   border-radius: 12px;
   border: none;
-  background: rgba(255,255,255,0.08);
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
 }
 :deep(.cfg-card .el-card__header) {
-  padding: 10px 14px;
-  background: linear-gradient(135deg, rgba(102,126,234,0.6), rgba(118,75,162,0.6));
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
   color: #fff;
   border-radius: 12px 12px 0 0;
   border-bottom: none;
 }
 :deep(.cfg-card .el-card__body) {
-  padding: 10px 14px 14px;
+  padding: 16px;
 }
 :deep(.el-form-item__label) {
-  font-size: 12px;
-  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  color: #606266;
   font-weight: 500;
 }
 :deep(.el-input__wrapper),
 :deep(.el-select__wrapper) {
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.15);
+  background: #f5f7fa;
+  border: 1px solid #e4e7ed;
   box-shadow: none;
 }
 :deep(.el-input__wrapper:hover),
 :deep(.el-select__wrapper:hover) {
-  border-color: rgba(102,126,234,0.5);
+  border-color: #c0c4cc;
 }
-:deep(.el-input__inner),
-:deep(.el-select__placeholder) {
-  color: #fff;
+:deep(.el-input__inner) {
+  color: #303133;
 }
 :deep(.el-input__wrapper.is-focus),
 :deep(.el-select__wrapper.is-focus) {
   border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102,126,234,0.3);
-}
-:deep(.el-input__count-inner) {
-  background: transparent;
+  box-shadow: 0 0 0 2px rgba(102,126,234,0.2);
 }
 :deep(.el-input-number__decrease),
 :deep(.el-input-number__increase) {
-  background: rgba(255,255,255,0.1);
-  color: #fff;
-  border-color: rgba(255,255,255,0.15);
+  background: #f5f7fa;
+  color: #606266;
+  border-color: #e4e7ed;
 }
 :deep(.el-input-number__decrease:hover),
 :deep(.el-input-number__increase:hover) {
@@ -691,17 +688,6 @@ onMounted(() => {
   gap: 8px;
   font-weight: 600;
   font-size: 14px;
-}
-
-/* 主内容区 */
-.main {
-  flex: 1;
-  margin-left: 280px;
-  padding: 20px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  transition: margin-left 0.3s ease;
 }
 
 /* 执行按钮区域 */
@@ -770,21 +756,21 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* 右侧内容 */
-.content {
+/* 底部面板区 */
+.bottom-panels {
   flex: 1;
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
+  min-height: 0;
 }
 
 .result-card,
 .log-card {
   border-radius: 12px;
   border: none;
+  display: flex;
+  flex-direction: column;
 }
 :deep(.result-card .el-card__header),
 :deep(.log-card .el-card__header) {
@@ -796,6 +782,8 @@ onMounted(() => {
 :deep(.result-card .el-card__body),
 :deep(.log-card .el-card__body) {
   padding: 16px;
+  flex: 1;
+  overflow: hidden;
 }
 
 /* 运行状态指示器 */
@@ -918,6 +906,7 @@ onMounted(() => {
 .log-box {
   background: #0d1117;
   border-radius: 8px;
+  height: 100%;
   max-height: 380px;
   overflow-y: auto;
   padding: 12px 16px;
@@ -952,5 +941,12 @@ onMounted(() => {
 
 :deep(.el-empty__description p) {
   color: #aaa;
+}
+
+/* 响应式 */
+@media (max-width: 1024px) {
+  .bottom-panels {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

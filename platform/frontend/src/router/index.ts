@@ -12,8 +12,26 @@ const router = createRouter({
     },
     {
       path: '/',
-      name: 'Dashboard',
-      component: () => import('@/views/DashboardView.vue'),
+      name: 'Home',
+      component: () => import('@/views/HomeView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/logistics/link-test',
+      name: 'LogisticsLinkTest',
+      component: () => import('@/views/LinkTestView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/logistics/document-upload',
+      name: 'LogisticsDocumentUpload',
+      component: () => import('@/views/PlaceholderView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/logistics/approval-config',
+      name: 'LogisticsApprovalConfig',
+      component: () => import('@/views/PlaceholderView.vue'),
       meta: { requiresAuth: true },
     },
   ],
@@ -25,7 +43,7 @@ router.beforeEach((to) => {
     return { name: 'Login' }
   }
   if (to.meta.guest && auth.isLoggedIn) {
-    return { name: 'Dashboard' }
+    return { name: 'Home' }
   }
 })
 

@@ -68,7 +68,7 @@ npm run dev
 ### 1. 上传整个 pr_study 目录到虚拟机
 
 ```bash
-scp -r pr_study user@your-vm:/home/user/
+scp -r pr_study lele@192.168.122.128:/home/user/
 ```
 
 ### 2. 创建 Python 虚拟环境并安装依赖
