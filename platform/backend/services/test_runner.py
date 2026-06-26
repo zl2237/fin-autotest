@@ -65,7 +65,6 @@ def run_test(run_id: str, marker: str, payload: dict):
             ]
             if loop_count > 1:
                 cmd.append("--count=" + str(loop_count))
-            cmd.append("--alluredir=" + str(REPORT_DIR / "allure-results"))
             process = subprocess.Popen(
                 cmd,
                 cwd=str(PROJECT_ROOT),

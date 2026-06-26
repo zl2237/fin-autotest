@@ -85,6 +85,7 @@ pip install -r requirements.txt
 ```bash
 cd ~/pr_study/platform/frontend
 npm install
+sudo chmod -R 775 /home/lele/pr_study
 npm run build          # 产物输出到 ../backend/static/
 ```
 
