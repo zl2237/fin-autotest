@@ -16,116 +16,35 @@
 
 ```
 pr_study/
-├── api/                        # API 层（按业务域组织）
-│   ├── order/                  # 订单域
-│   │   ├── order_api.py        # 订单 CRUD + 分发
-│   │   └── audit_api.py        # 资产推送审批
-│   ├── receive/               # 应收域
-│   │   ├── receive_account_api.py
-│   │   ├── receive_apply_api.py
-│   │   ├── receive_invoice_register_api.py
-│   │   └── receive_writeoff_api.py
-│   └── pay/                    # 付款域
-│       ├── pay_account_api.py
-│       ├── pay_apply_api.py
-│       ├── pay_demand_api.py
-│       ├── pay_demand_audit_api.py
-│       ├── pay_invoice_register_api.py
-│       ├── pay_writeoff_api.py
-│       └── payable_api.py
-│
-├── config/
-│   └── settings.py            # 全局配置（.env 加载）
-│
-├── core/
-│   └── http_client.py         # HTTP 客户端
-│
-├── data/                       # 数据层（YAML 配置 + 数据类）
-│   ├── env.py                 # YAML 加载器，按 TEST_ENV 加载 *_tidb.yaml 或 *_pre.yaml
-│   ├── order/                 # 订单基础、费用、审批流、费用通知单、费用确认单
-│   │   ├── order_tidb.yaml / order_pre.yaml
-│   │   ├── audit_tidb.yaml / audit_pre.yaml
-│   │   ├── fee_tidb.yaml / fee_pre.yaml
-│   │   ├── fee_notice_tidb.yaml / fee_notice_pre.yaml
-│   │   └── fee_confirm_tidb.yaml / fee_confirm_pre.yaml
-│   ├── receive/               # 应收对账、开票、核销
-│   │   ├── receive_account_tidb.yaml / receive_account_pre.yaml
-│   │   ├── receive_invoice_tidb.yaml / receive_invoice_pre.yaml       # 开票批次 + 审核
-│   │   ├── receive_invoice_upload_tidb.yaml / receive_invoice_upload_pre.yaml
-│   │   └── receive_writeoff_tidb.yaml / receive_writeoff_pre.yaml
-│   └── pay/                   # 应付对账、开票、付款需求、核销
-│       ├── pay_account_tidb.yaml / pay_account_pre.yaml
-│       ├── payable_invoice_tidb.yaml / payable_invoice_pre.yaml        # 应付开票申请
-│       ├── payable_invoice_register_tidb.yaml / payable_invoice_register_pre.yaml
-│       ├── pay_demand_tidb.yaml / pay_demand_pre.yaml
-│       ├── pay_demand_audit_tidb.yaml / pay_demand_audit_pre.yaml
-│       └── pay_writeoff_tidb.yaml / pay_writeoff_pre.yaml
-│
-├── testcases/                 # 测试用例层
-│   ├── conftest.py            # pytest 全局配置（登录、JSON 摘要）
-│   ├── order/                 # 链路 1~12
-│   │   ├── test_order_basic.py
-│   │   ├── test_fee.py
-│   │   ├── test_audit.py
-│   │   └── test_fee_notice_confirm.py
-│   ├── receive/               # 链路 13~18
-│   │   ├── test_receive_account.py
-│   │   ├── test_receive_writeoff.py
-│   │   ├── test_receive_invoice_batch.py
-│   │   ├── test_receive_invoice_batch_audit.py
-│   │   └── test_receive_invoice_upload.py
-│   └── pay/                   # 链路 19~25
-│       ├── test_pay_account.py
-│       ├── test_pay_apply.py
-│       ├── test_pay_invoice_register.py
-│       └── test_pay_demand.py
-│
-├── workflows/                 # 流程编排层
-│   ├── order_workflow.py      # 全流程编排入口
-│   ├── order/                 # 订单域步骤
-│   │   ├── order_steps.py
-│   │   ├── audit_steps.py
-│   │   └── fee_steps.py
-│   ├── receive/               # 应收域步骤
-│   │   ├── receive_account_steps.py
-│   │   ├── receive_writeoff_steps.py
-│   │   ├── receive_apply_steps.py
-│   │   └── receive_invoice_register_steps.py
-│   └── pay/                   # 付款域步骤
-│       ├── pay_account_steps.py
-│       ├── pay_apply_steps.py
-│       ├── pay_invoice_register_steps.py
-│       ├── pay_demand_steps.py
-│       ├── pay_demand_audit_steps.py
-│       └── pay_writeoff_steps.py
-│
-├── platform/                  # 🆕 Web 测试平台
-│   ├── backend/               # Flask 后端 API
-│   │   ├── run.py             # 启动入口
-│   │   ├── requirements.txt   # Python 依赖
-│   │   ├── app/
-│   │   │   ├── api/           # 路由：auth / environments / exec
-│   │   │   ├── core/          # config / db
-│   │   │   ├── models/
-│   │   │   ├── services/
-│   │   │   └── utils/
-│   │   └── static/            # Vue 构建产物（开发模式由 Vite 托管）
-│   └── frontend/              # Vue 3 前端
-│       ├── package.json
-│       ├── vite.config.js
-│       ├── index.html
-│       └── src/
-│           ├── api/           # axios 接口封装
-│           ├── views/         # 页面组件
-│           ├── components/    # 公共组件
-│           ├── stores/        # Pinia 状态管理
-│           └── utils/         # request 拦截器
-│
-├── notify.py                  # 企微机器人通知
-├── pytest.ini                 # pytest 配置（标记定义）
-├── conftest.py                # pytest 根配置（redirect）
-├── .env.example               # 环境变量模板
-└── requirements.txt           # Python 依赖
+├── api/                    # API 层（HTTP 接口封装）
+│   ├── order/              # 订单域
+│   ├── receive/            # 应收域
+│   └── pay/                # 付款域
+├── config/                 # 全局配置
+│   └── settings.py         # .env 加载 + 常量
+├── core/                   # 基础设施
+│   └── http_client.py      # HTTP 客户端
+├── data/                   # 数据层（YAML 配置 + 数据构建）
+│   ├── env.py              # YAML 按环境加载
+│   ├── order/              # 订单、费用、审批流
+│   ├── receive/            # 应收对账、开票、核销
+│   └── pay/                # 应付对账、开票、付款需求、核销
+├── testcases/              # pytest 用例
+│   ├── order/              # 链路 1~12
+│   ├── receive/            # 链路 13~18
+│   └── pay/                # 链路 19~25
+├── workflows/              # 流程编排
+│   ├── order/              # 订单域步骤
+│   ├── receive/            # 应收域步骤
+│   └── pay/                # 付款域步骤
+├── platform/               # Web 测试平台
+│   ├── backend/            # Flask 后端
+│   └── frontend/           # Vue 3 前端
+├── notify.py               # 企微通知
+├── pytest.ini              # pytest 配置
+├── conftest.py             # pytest 根配置
+├── .env.example            # 环境变量模板
+└── requirements.txt        # Python 依赖
 ```
 
 ---

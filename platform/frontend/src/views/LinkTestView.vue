@@ -216,6 +216,7 @@
             <div class="card-header">
               <el-icon><DataAnalysis /></el-icon>
               <span>执行结果</span>
+              <el-button v-if="run.run_id" type="danger" size="small" plain @click="clearHistory">清除记录</el-button>
             </div>
           </template>
 
@@ -291,6 +292,7 @@
               <el-icon><Document /></el-icon>
               <span>运行日志</span>
               <el-tag v-if="logs.length" type="info" size="small">{{ logs.length }} 行</el-tag>
+              <el-button v-if="logs.length" type="info" size="small" plain @click="logs = []">清空日志</el-button>
             </div>
           </template>
           <div class="log-box" ref="logBoxRef">
@@ -305,7 +307,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, computed } from 'vue'
+import { ref, onMounted, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -330,6 +332,35 @@ const running = ref(false)
 
 const summary = computed(() => run.value.result?.summary || {})
 const failedCases = computed(() => summary.value.details?.failed || [])
+
+// localStorage 记忆键
+const STORAGE_KEY = 'link_test_state_v1'
+
+function loadSavedState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (!saved) return
+    const data = JSON.parse(saved)
+    if (data.run) run.value = data.run
+    if (data.logs) logs.value = data.logs
+    if (typeof data.running === 'boolean') running.value = data.running
+  } catch {
+    // 忽略解析失败
+  }
+}
+
+function saveState() {
+  try {
+    const payload = {
+      run: run.value,
+      logs: logs.value,
+      running: running.value,
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+  } catch {
+    // 忽略存储失败
+  }
+}
 
 // 从 base_url 提取环境标识（test_env），传给后端用于 data 层 YAML 切换
 const testEnv = computed(() => {
@@ -441,7 +472,28 @@ function logClass(line: string) {
   return ''
 }
 
+function clearHistory() {
+  run.value = { run_id: '', status: '', marker: '', result: {}, logs: [] }
+  logs.value = []
+  running.value = false
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // ignore
+  }
+  ElMessage.success('历史记录已清除')
+}
+
+watch(
+  [run, logs, running],
+  () => {
+    saveState()
+  },
+  { deep: true }
+)
+
 onMounted(() => {
+  loadSavedState()
   loadMarkers()
 })
 </script>

@@ -27,10 +27,10 @@ def create_app():
     @app.route("/", defaults={"path": ""})
     @app.route("/<path:path>")
     def serve_frontend(path):
-        static_dir = Path(__file__).resolve().parent / "static"
-        if path and (static_dir / path).exists():
-            return send_from_directory(str(static_dir), path)
-        return send_from_directory(str(static_dir), "index.html")
+        dist_dir = Path(__file__).resolve().parent / "static" / "dist"
+        if path and (dist_dir / path).exists():
+            return send_from_directory(str(dist_dir), path)
+        return send_from_directory(str(dist_dir), "index.html")
 
     return app
 

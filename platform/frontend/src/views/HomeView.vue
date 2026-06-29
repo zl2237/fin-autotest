@@ -69,6 +69,7 @@
         <section class="manual-section">
           <h2>项目简介</h2>
           <p>基于 pytest + requests 的接口自动化测试框架，用于物流管理系统的全流程接口测试，覆盖从新建订单到付款单核销的 25 条链路。</p>
+          <p>25 条链路按依赖顺序递增，链路 25 隐含链路 1~24 的全部步骤。配置与代码分离，所有业务参数均存储在 YAML，通过 <code>TEST_ENV</code> 切换环境。</p>
         </section>
 
         <section class="manual-section">
@@ -89,6 +90,40 @@
             <el-table-column prop="tech" label="技术" width="140" />
             <el-table-column prop="version" label="版本" />
           </el-table>
+        </section>
+
+        <section class="manual-section">
+          <h2>目录结构</h2>
+          <pre class="code-block">pr_study/
+├── api/                    # API 层（HTTP 接口封装）
+│   ├── order/              # 订单域
+│   ├── receive/            # 应收域
+│   └── pay/                # 付款域
+├── config/                 # 全局配置
+│   └── settings.py         # .env 加载 + 常量
+├── core/                   # 基础设施
+│   └── http_client.py      # HTTP 客户端
+├── data/                   # 数据层（YAML 配置 + 数据构建）
+│   ├── env.py              # YAML 按环境加载
+│   ├── order/              # 订单、费用、审批流
+│   ├── receive/            # 应收对账、开票、核销
+│   └── pay/                # 应付对账、开票、付款需求、核销
+├── testcases/              # pytest 用例
+│   ├── order/              # 链路 1~12
+│   ├── receive/            # 链路 13~18
+│   └── pay/                # 链路 19~25
+├── workflows/              # 流程编排
+│   ├── order/              # 订单域步骤
+│   ├── receive/            # 应收域步骤
+│   └── pay/                # 付款域步骤
+├── platform/               # Web 测试平台
+│   ├── backend/            # Flask 后端
+│   └── frontend/           # Vue 3 前端
+├── notify.py               # 企微通知
+├── pytest.ini              # pytest 配置
+├── conftest.py             # pytest 根配置
+├── .env.example            # 环境变量模板
+└── requirements.txt        # Python 依赖</pre>
         </section>
 
         <section class="manual-section">
