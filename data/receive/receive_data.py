@@ -50,8 +50,8 @@ INVOICE_UPLOAD_SORT_FIELD = _RU_CONST.get("sort_field", "create_time")
 INVOICE_UPLOAD_SORT_ORDER = _RU_CONST.get("sort_order_desc", "desc")
 INVOICE_UPLOAD_ACTION_SUBMIT = _RU_CONST.get("action_submit", "submit")
 INVOICE_UPLOAD_INVOICE_FILENAME = (
-    _RECEIVE_INVOICE_UPLOAD_CFG.get("invoice_file", {}).get("filename", "receive_invoice.pdf")
-    if _RECEIVE_INVOICE_UPLOAD_CFG else "receive_invoice.pdf"
+    _RECEIVE_INVOICE_UPLOAD_CFG.get("invoice_file", {}).get("filename", "tidb_receive_invoice.pdf")
+    if _RECEIVE_INVOICE_UPLOAD_CFG else "tidb_receive_invoice.pdf"
 )
 INVOICE_UPLOAD_IDENTITY_CUSTOMER = _RU_CONST.get("identity_customer", "customer")
 INVOICE_UPLOAD_IDENTITY_MAIN = _RU_CONST.get("identity_main", "main")

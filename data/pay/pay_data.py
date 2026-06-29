@@ -751,7 +751,7 @@ PIUP_SORT_FIELD = _PIUP_CONST.get("sort_field", "create_time")
 PIUP_SORT_ORDER_DESC = _PIUP_CONST.get("sort_order_desc", "desc")
 PIUP_ALLOCATION_CURRENCY = _PIUP_CONST.get("currency", "USD")
 
-PIUP_INVOICE_FILENAME = _PIUP_UPLOAD.get("filename", "pay_invoice.pdf")
+PIUP_INVOICE_FILENAME = _PIUP_UPLOAD.get("filename", "tidb_pay_invoice.pdf")
 
 PIUP_BUYER_CHINESE_HEADER = _PIUP_BUYER.get("chinese_header", "")
 PIUP_BUYER_IDENTIFIER_NO = _PIUP_BUYER.get("identifier_no", "")

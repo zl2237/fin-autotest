@@ -40,7 +40,7 @@ _constants:
 upload_file:
   # 发票文件相对于 data/attachment/ 的文件名
   # 配置在此处，data 层自动拼接为完整路径
-  filename: "pay_invoice.pdf"
+  filename: "pre_pay_invoice.pdf"
 
 # --------------------------------------------------------------------------
 # invoiceAdd 字段（发票信息）
