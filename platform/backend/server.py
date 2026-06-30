@@ -11,7 +11,7 @@ from api.logs import bp as logs_bp
 
 
 def create_app():
-    app = Flask(__name__, static_folder="static", static_url_path="")
+    app = Flask(__name__)
     app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-in-prod")
     CORS(app, supports_credentials=True)
 
@@ -39,5 +39,6 @@ app = create_app()
 
 if __name__ == "__main__":
     port = int(os.getenv("PLATFORM_PORT", 5000))
+    debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
     print(f"[Platform] Backend starting on http://0.0.0.0:{port}")
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=debug)

@@ -89,6 +89,7 @@ npm run build
 
 ```bash
 cd /opt/pr_study/platform
+mkdir -p backend/static
 cp -r frontend/dist/* backend/static/
 ```
 
@@ -97,12 +98,7 @@ cp -r frontend/dist/* backend/static/
 创建服务文件：
 
 ```bash
-sudo nano /etc/systemd/system/pr_study.service
-```
-
-写入以下内容：
-
-```ini
+sudo tee /etc/systemd/system/pr_study.service > /dev/null <<EOF
 [Unit]
 Description=PR Study Platform
 After=network.target
@@ -117,6 +113,7 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
+EOF
 ```
 
 > **注意**：`User` 必须与执行 git pull 的用户一致（如 `lele`），否则日志文件写入会报权限错误。
