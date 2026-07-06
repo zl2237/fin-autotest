@@ -73,7 +73,7 @@
         <section class="manual-section">
           <h2>项目简介</h2>
           <p>基于 pytest + requests 的接口自动化测试框架，用于物流管理系统的全流程接口测试，覆盖从新建订单到付款单核销的 38 条链路。</p>
-          <p>38 条链路按依赖顺序递增，链路 13/25 是两类扩展流程的共同前置。配置与代码分离，所有业务参数均存储在 YAML，通过 <code>TEST_ENV</code> 切换环境。</p>
+          <p>38 条链路按依赖顺序递增。配置与代码分离，所有业务参数均存储在 YAML，通过 <code>TEST_ENV</code> 切换环境。</p>
         </section>
 
         <section class="manual-section">
@@ -101,35 +101,44 @@
         <section class="manual-section">
           <h2>目录结构</h2>
           <pre class="code-block">pr_study/
-├── api/                    # API 层（HTTP 接口封装）
-│   ├── order/              # 订单域
-│   ├── receive/            # 应收域
-│   └── pay/                # 付款域
-├── config/                 # 全局配置
-│   └── settings.py         # .env 加载 + 常量
-├── core/                   # 基础设施
-│   └── http_client.py      # HTTP 客户端
-├── data/                   # 数据层（YAML 配置 + 数据构建）
-│   ├── env.py              # YAML 按环境加载
-│   ├── order/              # 订单、费用、审批流
-│   ├── receive/            # 应收对账、开票、核销
-│   └── pay/                # 应付对账、开票、付款需求、核销
-├── testcases/              # pytest 用例
-│   ├── order/              # order1~12（仅订单基础步骤）
-│   ├── pay_receive/        # order_pay_receive1~13（订单→应付→应收）
-│   └── receive_pay/        # order_receive_pay1~13（订单→应收→应付）
-├── workflows/              # 流程编排
-│   ├── order/              # 订单域步骤
-│   ├── receive/            # 应收域步骤
-│   └── pay/                # 付款域步骤
-├── platform/               # Web 测试平台
-│   ├── backend/            # Flask 后端
-│   └── frontend/           # Vue 3 前端
-├── notify.py               # 企微通知
-├── pytest.ini              # pytest 配置
-├── conftest.py             # pytest 根配置
-├── .env.example            # 环境变量模板
-└── requirements.txt        # Python 依赖</pre>
+├── api/                            # API 层：HTTP 接口封装，按 order/receive/pay 划分域
+│   ├── order/
+│   ├── receive/
+│   └── pay/
+├── config/                         # 配置层
+│   └── settings.py                 # 环境变量与全局常量
+├── core/                           # 基础设施
+│   └── http_client.py              # 统一 HTTP 客户端
+├── data/                           # 数据层：YAML 配置 + 数据构建，按环境自动加载
+│   ├── env.py
+│   ├── order/
+│   ├── receive/
+│   └── pay/
+├── utils/                          # 公共工具
+│   ├── __init__.py
+│   ├── generate.py                 # 测试数据生成/编码生成
+│   └── logger.py                   # 日志初始化与格式化
+├── testcases/                      # pytest 用例，按 order/pay_receive/receive_pay 分组
+│   ├── conftest.py
+│   ├── order/
+│   ├── pay_receive/
+│   └── receive_pay/
+├── workflows/                      # 流程编排：业务链路到 steps 的调度与依赖传递
+│   ├── order/
+│   ├── receive/
+│   ├── pay/
+│   ├── pay_receive_workflow.py
+│   └── receive_pay_workflow.py
+├── platform/                       # Web 测试平台
+│   ├── backend/                    # Flask 后端：执行调度、日志、用户管理
+│   └── frontend/                   # Vue 3 前端：链路选择、执行、历史、用户管理
+├── .gitlab-ci.yml                  # CI 配置
+├── .gitignore
+├── .env.example
+├── conftest.py                     # pytest 根配置、环境与 fixtures
+├── notify.py                       # 企微通知
+├── pytest.ini
+└── requirements.txt                # Python 依赖</pre>
         </section>
 
         <section class="manual-section">
