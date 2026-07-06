@@ -87,7 +87,10 @@ cd /opt/pr_study
 ### 2. 修复项目目录权限
 
 ```bash
-sudo chown -R $(whoami):$(whoami) /opt/pr_study
+# 把整个前端目录归属给 lele 用户
+sudo chown -R lele:lele /opt/pr_study/platform/frontend
+# 赋予执行权限
+chmod -R 755 node_modules
 ```
 
 ### 3. 创建并激活虚拟环境
@@ -184,6 +187,10 @@ sudo systemctl status pr_study
 ```bash
 cd platform/frontend
 npm install
+# 把整个前端目录归属给 lele 用户
+sudo chown -R lele:lele /opt/pr_study/platform/frontend
+# 赋予执行权限
+chmod -R 755 node_modules
 npm run build
 mkdir backend/static/dist
 cp -r frontend/dist/* backend/static/dist
