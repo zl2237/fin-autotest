@@ -47,4 +47,4 @@ if __name__ == "__main__":
     port = int(os.getenv("PLATFORM_PORT", 5000))
     debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
     print(f"[Platform] Backend starting on http://0.0.0.0:{port}")
-    app.run(host="0.0.0.0", port=port, debug=debug)
+    app.run(host="127.0.0.1", port=5000)
