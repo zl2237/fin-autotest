@@ -94,8 +94,8 @@ deploy:
   script:
     - |
       mkdir -p report
-      # 加 -t 分配伪终端，保留单引号避免变量提前解析
-      ssh -t -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" << 'SSH_SCRIPT'
+      # 登录后直接切root执行脚本，远程内部不再需要sudo
+      ssh -t -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" 'sudo -i bash -s' << 'SSH_SCRIPT'
       set -e
   
       DEPLOY_DIR="/opt/pr_study"
@@ -129,12 +129,12 @@ deploy:
       cp -r dist/* "${BACKEND_DIR}/static/dist"/
       echo "[${NOW}] 前端构建完成"
   
-      # 4. 全部带sudo
-      sudo systemctl daemon-reload
-      sudo systemctl enable pr_study
-      sudo systemctl restart pr_study
+      # 4. 已为root身份，删掉所有sudo
+      systemctl daemon-reload
+      systemctl enable pr_study
+      systemctl restart pr_study
       sleep 3
-      sudo systemctl status pr_study --no-pager || true
+      systemctl status pr_study --no-pager || true
   
       echo "[$(date '+%Y-%m-%d %H:%M:%S')] ===== 部署完成 ====="
       SSH_SCRIPT
