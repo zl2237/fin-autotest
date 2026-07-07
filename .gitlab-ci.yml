@@ -88,8 +88,10 @@ deploy:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   before_script:
     - eval $(ssh-agent -s)
-    - tr -d '\r' < "$SSH_PRIVATE_KEY" | ssh-add -
+    # 先创建ssh目录，权限700
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    # File变量直接加载文件，不用tr处理换行
+    - ssh-add "$SSH_PRIVATE_KEY"
     - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
   script:
     - |
