@@ -1,0 +1,52 @@
+# ============================================================================
+# 应付对账批次配置（LK19 / LK20）
+# ============================================================================
+# 涉及 4 个请求：
+#   1. financePayList          - 查询应付项列表（按 bl_no）
+#   2. orderPayAccountEdit     - 发起应付对账批次（action=submit）
+#   3. payAccountPage          - 确认前查询应付对账批次（验证状态）
+#   4. accountConfirm          - 确认应付对账
+#
+# 所有枚举值、常量默认值统一从本文件读取，Python 代码中禁止硬编码。
+# LK21 应付开票批次申请的配置见 payable_invoice.yaml
+# ============================================================================
+
+_constants:
+  # operate_type：0=按费用对账，1=按提单对账（应收应付共用此字段含义）
+  operate_type: 1
+
+  # account_type：2=跨客户对账（与应收一致）
+  account_type: "2"
+
+  # 分页与排序
+  page_no: 1
+  page_size: 50
+  sort_field: "create_time"
+  sort_order_desc: "desc"
+
+  # 时间范围（天数）
+  page_year_offset: 365
+
+# financePayList 查询参数（固定值，通常全填空由 bl_no 精确定位）
+finance_pay_list:
+  search_style: "account"
+  account_simple_name: null
+  customer_id: null
+  pay_settle_object_id: null
+
+# orderPayAccountEdit 参数
+order_pay_account_edit:
+  # action：submit=正式提交（另有 check=预校验，暂不启用）
+  action_submit: "submit"
+
+# payAccountPage 查询参数
+pay_account_page:
+  # 账户状态：1=对账中（用于确认前验证批次状态）
+  account_status: ["1"]
+
+# accountConfirm 参数
+account_confirm:
+  # confirm_type：0=待确认（与应收对账一致）
+  confirm_type: 0
+  # quick_status：1=快捷确认
+  quick_status: 1

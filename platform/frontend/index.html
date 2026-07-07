@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>API 测试平台</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="test-js" style="display:none">JS is working</div>
+    <script>
+      console.log('[HTML] inline script executed')
+      console.log('document.getElementById("app"):', document.getElementById('app'))
+      console.log('document.getElementById("test-js"):', document.getElementById('test-js'))
+    </script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

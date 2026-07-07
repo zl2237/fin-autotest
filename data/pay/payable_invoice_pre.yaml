@@ -1,0 +1,108 @@
+# ============================================================================
+# 应付开票批次申请配置（LK21）
+# ============================================================================
+# 涉及 3 个请求：
+#   1. financePayList（开票模式）  - 按 bl_no 查询应付开票项
+#   2. getOrderInfoByFeeId         - 按 order_fee_real_id 列表查询开票订单详情
+#   3. batchOrderEdit              - 提交应付开票批次申请（apply_type=2 应付，submit 即生效）
+#
+# 所有枚举值、常量默认值统一从本文件读取，Python 代码中禁止硬编码。
+# 应付对账批次（LK19/LK20）的配置见 pay_account.yaml
+# ============================================================================
+
+_constants:
+  # operate_type：与 payable.yaml 保持一致（按提单对账）
+  operate_type: 1
+
+  # account_type：与 payable.yaml 保持一致
+  account_type: "2"
+
+  # 分页与排序
+  page_no: 1
+  page_size: 50
+  sort_field: "create_time"
+  sort_order_desc: "desc"
+
+  # 时间范围（天数）
+  page_year_offset: 365
+
+# --------------------------------------------------------------------------
+# financePayList（开票模式）参数
+# --------------------------------------------------------------------------
+# 与对账模式共用同一接口，仅 search_style / batch_type 不同
+#
+# 必填字段 main_id / pay_settle_object_id / pay_settle_object：
+#   - 优先级 1：调用方显式传入（来自上游 confirm_payable_result）
+#   - 优先级 2：本 YAML 默认值（下方三个字段）
+#   - 优先级 3：都没有则抛 AssertionError
+#   缺失这三个字段会导致 financePayList 按全量 fee 返回，
+#   间接导致后续 batchOrderEdit 返回 406。
+finance_pay_list_invoice:
+  search_style: "invoice"
+  batch_type: 1
+  # 主体ID（参考值：6=上海一帜物流科技有限公司）
+  main_id: "1"
+  # 付款结算对象ID（参考值：92102=芜湖长信科技股份有限公司）
+  pay_settle_object_id: "364"
+  # 付款结算对象名称（与 pay_settle_object_id 配对）
+  pay_settle_object: "青岛展鸿国际货运代理有限公司"
+
+# --------------------------------------------------------------------------
+# getOrderInfoByFeeId 参数
+# --------------------------------------------------------------------------
+get_order_info_by_fee_id:
+  # 默认汇率（与应收开票一致）
+  default_exchange_rate: 7
+  # usd_invoice_remark：0=不开启
+  usd_invoice_remark: 0
+  # style：1=开票模式
+  style: 1
+  # invoice_apply_simple：开票申请简称（API 层 batch_order_edit_items 内联对象使用）
+  invoice_apply_simple: ""
+
+# --------------------------------------------------------------------------
+# batchOrderEdit 参数（应付开票申请）
+# --------------------------------------------------------------------------
+batch_order_edit_pay:
+  # action：submit=直接生效（应付方向无需审批）
+  action_submit: "submit"
+  # apply_type：2=应付（与应收 apply_type=1 对应）
+  apply_type: "2"
+  # batch_type：1=批次
+  batch_type: "1"
+  # merge_with_cny：2=不合并CNY
+  merge_with_cny: "2"
+  # usd_is_turn：2=USD不开票（数字发票）
+  usd_is_turn: "2"
+  # rate_type：3=指定汇率
+  rate_type: "3"
+  # invoice_form：1=增值税
+  invoice_form: "1"
+  # invoice_type：1=专用发票
+  invoice_type: "1"
+  # invoice_item：2=国际货物运输代理海运费
+  invoice_item: "2"
+  # invoice_item_name：与 invoice_item 对应的中文名
+  invoice_item_name: "国际货物运输代理海运费"
+  # 默认税率（与应收开票保持一致）
+  default_invoice_rate: 6
+  # 默认汇率（字符串，batchOrderEdit 中使用）
+  default_exchange_rate: "7"
+  # appoint_rate：与 default_exchange_rate 保持一致
+  appoint_rate: "7"
+  # sys_rate：默认空字符串
+  sys_rate: ""
+  # 备注
+  remark: "—"
+  # require_other
+  require_other: "暂无要求"
+  # 默认申请批次名前缀（实际批次名由 main_name + pay_settle_object + month + usd 拼接）
+  invoice_apply_name_pattern: "{main_name} + {pay_settle_object} + {month} + USD {amount}"
+  # invoice_apply_simple：开票申请简称（usd_require / cny_require 内联）
+  invoice_apply_simple: "test_apply_simple"
+  # fast_remark：快速备注（固定 JSON 空数组）
+  fast_remark: "[]"
+  # purchaser_tax_number：购方税号
+  purchaser_tax_number: "91370202MABU30PK3F"
+  # batch_order_remark：批次备注（默认测试值）
+  batch_order_remark: "test_remark"

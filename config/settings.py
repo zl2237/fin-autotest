@@ -11,7 +11,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # 尝试加载 .env 文件
 _env_file = BASE_DIR / ".env"
 if _env_file.exists():
-    # 指定 .env 文件的绝对路径
     load_dotenv(_env_file, override=True)
     print(f"[INFO] 已加载环境变量文件: {_env_file}")
 else:
@@ -24,10 +23,12 @@ else:
 PATH_CONFIG = {
     "log_dir": BASE_DIR / "report" / "logs",
     "allure_result_dir": BASE_DIR / "report" / "allure-results",
+    "attachment_dir": BASE_DIR / "data" / "attachment",
 }
 
 LOG_DIR = str(PATH_CONFIG["log_dir"])
 ALLURE_RESULT_DIR = str(PATH_CONFIG["allure_result_dir"])
+TEST_DATA_DIR = str(PATH_CONFIG["attachment_dir"])
 LOG_RETENTION = 7
 
 
@@ -60,3 +61,9 @@ ORDER_OPERATOR_CONFIG = {
     "create_id": os.getenv("ORDER_CREATE_ID", ""),
     "username": os.getenv("USERNAME", ""),
 }
+
+# 订单前缀
+ORDER_PREFIX = os.getenv("ORDER_PREFIX", "lele")
+
+# 循环次数
+LOOP_COUNT = int(os.getenv("LOOP_COUNT", "1"))

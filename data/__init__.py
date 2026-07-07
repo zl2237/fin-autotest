@@ -1,24 +1,7 @@
-"""
-数据层 - 测试数据定义
-"""
-from .order_data import (
-    EntrustedOrderData,
-    BusinessOrderData,
-    OrderExpectations,
-    OrderTestData,
-    AddOrderData,
-    DistributeOrderData,
-    SubmitOrderData,
-    generate_bl_no,
-)
+"""Data 层 - 数据包入口
 
-__all__ = [
-    "EntrustedOrderData",
-    "BusinessOrderData",
-    "OrderExpectations",
-    "OrderTestData",
-    "AddOrderData",
-    "DistributeOrderData",
-    "SubmitOrderData",
-    "generate_bl_no",
-]
+按业务域拆 3 个子包：
+  order/   订单基础 + 费用 + 审批 + 费用通知单/确认单
+  receive/ 应收对账 + 应收开票 + 应收发票上传 + 应收核销
+  pay/     付款域（占位）
+"""

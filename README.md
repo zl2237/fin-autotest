@@ -1,16 +1,15 @@
-# PR Study - 接口自动化测试框架
+# PR Study - 接口自动化测试框架 + Web 测试平台
 
-基于 pytest + requests 的接口自动化测试框架，用于物流管理系统的全流程接口测试。
-
-## 项目简介
-
-本项目是一套面向物流管理系统的接口自动化测试框架，采用分层设计（API 层、数据层、用例层），支持订单的新增、查询、分发、提交等全流程测试。
+基于 pytest + requests 的接口自动化测试框架，用于物流管理系统的全流程接口测试，覆盖从新建订单到付款单核销的完整链路。
 
 **核心能力：**
-- 完整的订单生命周期测试（新增 → 分发 → 提交）
-- 支持多种运行方式（全部运行、按标记运行、单独运行）
-- 测试结果自动写入 JSON，企微机器人通知
-- 全局登录会话管理
+- 32 条链路：`order1~12` 为树根，`order_pay_receive1~13` 与 `order_receive_pay1~13` 为两类扩展执行顺序
+- workflows 层自动处理步骤间数据依赖（order_id、审批ID 等自动传递）
+- 所有业务配置参数集中存储于 YAML，Python 代码零硬编码
+- data 层按环境自动加载 `*_tidb.yaml` 或 `*_pre.yaml`，通过 `.env` 中的 `TEST_ENV` 切换
+- Web 平台：5 张流程选择卡片、环境管理、链路选择、循环执行、一键执行、实时日志、执行历史、用户管理
+- CI 环境自动企微机器人通知
+- Allure 报告
 
 ---
 
@@ -18,361 +17,242 @@
 
 ```
 pr_study/
-├── api/                          # API 层
-│   └── order.py                  # 订单相关接口封装
-│
-├── config/                       # 配置层
-│   ├── __init__.py               # 包初始化
-│   └── settings.py               # 全局配置（加载 .env）
-│
-├── core/                         # 核心模块
-│   └── http_client.py            # HTTP 客户端封装
-│
-├── data/                         # 数据层
-│   ├── __init__.py               # 包初始化
-│   └── order_data.py             # 订单测试数据（字段分层设计）
-│
-├── testcases/                    # 测试用例层
-│   └── test_order.py             # 订单接口测试用例
-│
-├── utils/                        # 工具模块
-│   ├── logger.py                 # 日志工具
-│   └── file_util.py              # 文件操作工具
-│
-├── conftest.py                   # pytest 全局配置（登录、报告生成）
-├── notify.py                      # 企微机器人通知脚本
-├── pytest.ini                    # pytest 配置文件
-├── requirements.txt              # Python 依赖
-└── README.md                     # 项目文档
+├── api/                            # API 层：HTTP 接口封装，按 order/receive/pay 划分域
+│   ├── order/
+│   ├── receive/
+│   └── pay/
+├── config/
+│   └── settings.py                 # 环境变量与全局常量
+├── core/
+│   └── http_client.py              # 统一 HTTP 客户端
+├── data/                           # 数据层：YAML 配置 + 数据构建，按环境自动加载
+│   ├── env.py
+│   ├── order/
+│   ├── receive/
+│   └── pay/
+├── utils/                          # 公共工具
+│   ├── __init__.py
+│   ├── generate.py                 # 测试数据生成/编码生成
+│   └── logger.py                   # 日志初始化与格式化
+├── testcases/                      # pytest 用例，按 order/pay_receive/receive_pay 分组
+│   ├── conftest.py
+│   ├── order/
+│   ├── pay_receive/
+│   └── receive_pay/
+├── workflows/                      # 流程编排：业务链路到 steps 的调度与依赖传递
+│   ├── order/
+│   ├── receive/
+│   ├── pay/
+│   ├── pay_receive_workflow.py
+│   └── receive_pay_workflow.py
+├── platform/                       # Web 测试平台
+│   ├── backend/                    # Flask 后端：执行调度、日志、用户管理
+│   └── frontend/                   # Vue 3 前端：链路选择、执行、历史、用户管理
+├── .gitlab-ci.yml                  # CI 配置
+├── .gitignore
+├── .env.example
+├── conftest.py                     # pytest 根配置、环境与 fixtures
+├── notify.py                       # 企微通知
+├── pytest.ini
+└── requirements.txt                # Python 依赖
 ```
 
 ---
 
 ## 技术栈
 
-| 技术 | 版本 | 用途 |
+| 层级 | 技术 | 版本 |
 |------|------|------|
-| pytest | ≥7.4.0 | 测试框架 |
-| requests | ≥2.31.0 | HTTP 客户端 |
-| loguru | ≥0.7.2 | 日志记录 |
-| allure-pytest | ≥2.13.2 | 测试结果收集 |
-| python-dotenv | ≥1.0.0 | 环境变量（可选） |
+| 测试框架 | pytest | >=7.4.0 |
+| HTTP 客户端 | requests | >=2.31.0 |
+| 日志记录 | loguru | >=0.7.2 |
+| YAML 配置 | PyYAML | >=6.0 |
+| 后端框架 | Flask | >=3.0.0 |
+| 数据库 | SQLite | 3.x（无需额外服务） |
+| 前端框架 | Vue 3 + Vite | ^3.4 / ^5.0 |
+| UI 组件库 | Element Plus | ^2.4.0 |
 
 ---
 
 ## 快速开始
 
-### 1. 安装依赖
+### 1. 克隆项目
 
 ```bash
+git clone http://172.16.18.55:88/root/pr_study.git
+cd pr_study
+```
+
+### 2. 安装依赖
+
+**后端（Python）：**
+
+```bash
+cd platform/backend
 pip install -r requirements.txt
 ```
 
-### 2. 配置环境
-
-#### 方式一：使用 .env 文件（推荐，保护敏感数据）
+**前端（Node.js）：**
 
 ```bash
-# 复制示例文件
+cd platform/frontend
+npm install
+```
+
+### 3. 配置环境
+
+**命令行 pytest 环境变量：**
+
+```bash
 cp .env.example .env
-
-# 编辑 .env，填入你的真实配置
+# 编辑 .env，关键变量：
+#   BASE_URL / LOGIN_URL / USERNAME / PASSWORD   -- 被测系统地址和登录凭据
+#   TEST_ENV=tidb                               -- 指定 data 层加载 tidb/pre 专属 YAML
 ```
 
-#### 方式二：直接修改 settings.py（不推荐，敏感数据可能泄露）
+Web 测试平台的启动与部署说明见 `platform/README.md`。
 
-编辑 `config/settings.py` 中的默认值。
+---
 
-#### 配置说明
+## 直接运行 pytest（命令行模式）
 
-| 配置项 | 说明 | 敏感程度 |
-|--------|------|----------|
-| `BASE_URL` | API 基础域名 | 低 |
-| `USERNAME` | 登录账号 | 高 |
-| `PASSWORD` | 登录密码 | 高 |
-| `TOKEN_FIELD` | Token 字段路径 | 低 |
-| `ORDER_CREATE_ID` | 操作员用户ID | 中 |
-
-> **注意**：`.env` 文件已被 `.gitignore` 忽略，不会推送到仓库。
-
-### 3. 运行测试
+保留原有的 pytest 命令行能力，不依赖 Web 平台：
 
 ```bash
-# 运行全部测试
-pytest
+# 配置被测系统
+cp .env.example .env
+# 编辑 .env 填入 BASE_URL、USERNAME、PASSWORD
 
-# 运行指定测试类
-pytest testcases/test_order.py::TestEntrustedOrder
-
-# 运行指定测试用例
-pytest testcases/test_order.py::TestEntrustedOrder::test_entrust_order_normal
-
-# 运行带特定标记的测试（见标记使用章节）
-pytest -m entrust
-pytest -m "add or distribute"
-```
-
-### 4. 测试结果
-
-pytest 运行结束后：
-
-- **本地**：终端输出汇总（通过/失败/跳过数量），失败用例详情
-- **JSON**：测试摘要写入 `report/allure-results/test_summary.json`（由 `conftest.py` 生成）
-- **企微通知**：CI 环境下自动调用 `notify.py` 发送机器人消息
-
-> 本地运行时不发企微通知（`notify.py` 依赖 CI 环境变量），手动验证可跳过。
-
----
-
-## 数据层设计
-
-### 字段分层架构
-
-```
-BaseOrderData (基础字段)
-    │
-    ├── 新增订单：直接使用基础字段
-    │       └── AddOrderData.get_add_payload(bl_no)
-    │
-    ├── 分发订单：基础字段 + order_info
-    │       └── DistributeOrderData.get_distribute_payload(order_info, bl_no)
-    │
-    └── 提交订单：基础字段 + SubmitRequiredFields (提交必填字段)
-            └── SubmitOrderData.get_submit_payload(order_info, bl_no)
-```
-
-### 核心数据类
-
-| 类名 | 用途 | 说明 |
-|------|------|------|
-| `BaseOrderData` | 基础字段 | 所有订单操作都需要的公共字段 |
-| `SubmitRequiredFields` | 提交必填字段 | 仅提交时需要的业务字段，新增/分发时默认置空 |
-| `AddOrderData` | 新增订单数据 | 基于 BaseOrderData |
-| `DistributeOrderData` | 分发订单数据 | 基于 BaseOrderData + order_info |
-| `SubmitOrderData` | 提交订单数据 | BaseOrderData + SubmitRequiredFields 合并 |
-
-### 使用示例
-
-```python
-from data.order_data import (
-    AddOrderData,
-    DistributeOrderData,
-    SubmitOrderData,
-    BaseOrderData,
-    SubmitRequiredFields,
-    generate_bl_no
-)
-
-# ============== 新增订单 ==============
-# 方式1: 仅基础字段（提交必填字段为空）
-payload = AddOrderData.get_add_payload()
-
-# 方式2: 基础字段 + 预填部分提交字段
-payload = AddOrderData.get_add_payload_with_submit_fields(
-    trade_term="FOB",
-    carrier="MSC"
-)
-
-# 方式3: 完全自定义
-payload = BaseOrderData.get_base_payload_with_overrides(
-    trade_term="CIF",
-    customer_id="12345"
-)
-
-# ============== 提交订单 ==============
-# 标准提交
-payload = SubmitOrderData.get_submit_payload(order_info, bl_no)
-
-# 自定义部分提交字段
-payload = SubmitOrderData.get_submit_payload_with_overrides(
-    order_info,
-    bl_no,
-    trade_term="FOB",
-    shipper="自定义发货人"
-)
+# 运行
+pytest -v                          # 全部
+pytest -m order1                   # 仅订单链路1
+pytest -m "order_pay_receive1 or order_pay_receive8"       # 多条链路
+pytest -m order_pay_receive13      # 订单+应付+应收全流程
+pytest -m order_receive_pay13      # 订单+应收+应付全流程
 ```
 
 ---
 
-## pytest 标记使用
+## 链路一览（32 条）
 
-### 预定义标记
+### 订单基础链路（order1~12）
 
-每个测试类对应一个独立标记，全部测试默认通过 `-m` 指定标记组合运行：
-
-| 标记 | 对应测试类 | 说明 |
-|------|-----------|------|
-| `entrust` | `TestEntrustedOrder` | 委托订单列表查询、分页、排序 |
-| `business` | `TestBusinessOrder` | 业务订单列表查询、分页、排序 |
-| `validation` | `TestOrderDataValidation` | 订单数据完整性验证 |
-| `add` | `TestAddOrder` | 新增订单接口 |
-| `distribute` | `TestAddAndDistribute` | 订单分发流程 |
-| `submit` | `TestSubmitOrder` | 订单提交接口 |
-| `workflow` | `TestFullWorkflow` | 完整订单流程（新增→分发→提交） |
-
-### 运行方式
-
-**CI 默认命令（执行全部用例）：**
-```bash
-pytest -m "entrust or business or validation or add or distribute or submit or workflow"
-```
-
-**常用运行场景：**
-
-```bash
-# 运行全部测试
-pytest -m "entrust or business or validation or add or distribute or submit or workflow"
-
-# 仅查询类（委托+业务）
-pytest -m "entrust or business"
-
-# 仅新增+分发
-pytest -m "add or distribute"
-
-# 仅完整流程
-pytest -m "workflow"
-
-# 排除提交相关（适合接口不稳定时）
-pytest -m "not submit"
-
-# 指定测试类
-pytest testcases/test_order.py::TestEntrustedOrder
-
-# 指定测试用例
-pytest testcases/test_order.py::TestEntrustedOrder::test_entrust_order_normal
-```
-
----
-
-## API 接口说明
-
-### 订单 API (`api/order.py`)
-
-| 方法 | 接口 | 说明 |
-|------|------|------|
-| `get_entrust_order_list()` | GET /api/order/orderEntrust/orderPage | 委托订单列表 |
-| `get_business_order_list()` | GET /api/order/order/orderPage | 业务订单列表 |
-| `get_order_by_bl_no()` | - | 按提单号查询订单 |
-| `add_order()` | POST /api/order/orderEntrust/orderAdd | 新增订单 |
-| `distribute_order()` | POST /api/order/orderEntrust/orderAdd | 分发订单 |
-| `submit_order()` | POST /api/order/order/orderAdd | 提交订单 |
-
-### 使用示例
-
-```python
-from api.order import OrderApi
-
-# 查询委托订单列表
-resp = OrderApi.get_entrust_order_list(page_no=1, page_size=20)
-
-# 新增订单
-resp = OrderApi.add_order(bl_no="TEST_BL_001")
-
-# 按提单号查询
-order_info = OrderApi.get_order_by_bl_no("TEST_BL_001")
-
-# 分发订单
-resp = OrderApi.distribute_order(order_info, bl_no="TEST_BL_001")
-
-# 提交订单
-resp = OrderApi.submit_order(order_info, bl_no="TEST_BL_001")
-```
-
----
-
-## 测试用例说明
-
-### 用例类列表
-
-| 类名 | 测试范围 |
+| 链路 | 停止阶段 |
 |------|----------|
-| `TestEntrustedOrder` | 委托订单列表查询、分页、排序 |
-| `TestBusinessOrder` | 业务订单列表查询、分页、排序 |
-| `TestOrderDataValidation` | 订单数据完整性验证 |
-| `TestAddOrder` | 新增订单接口测试 |
-| `TestAddAndDistribute` | 新增并分发流程测试 |
-| `TestSubmitOrder` | 提交订单接口测试 |
-| `TestFullWorkflow` | 完整订单流程测试 |
+| order1 | 新建 |
+| order2 | 分发 |
+| order3 | 暂存 |
+| order4 | 提交 |
+| order5 | 生成子订单 |
+| order6 | 录费用 |
+| order7 | 资产推送审批 |
+| order8 | 订单锁定审批 |
+| order9 | 未放款开票申请审批 |
+| order10 | 供应商垫付申请审批 |
+| order11 | 生成费用通知单 |
+| order12 | 生成费用确认单 |
+
+### 订单+应付+应收（默认，order_pay_receive1~13）
+
+**执行顺序：订单 → 应付 → 应收**
+
+| 链路 | 停止阶段 |
+|------|----------|
+| order_pay_receive1 | 发起应付对账批次 |
+| order_pay_receive2 | 确认应付对账 |
+| order_pay_receive3 | 发起应付开票批次申请 |
+| order_pay_receive4 | 应付发票上传与登记 |
+| order_pay_receive5 | 发起付款需求 |
+| order_pay_receive6 | 审核生成付款单 |
+| order_pay_receive7 | 付款单核销 |
+| order_pay_receive8 | 发起应收对账批次 |
+| order_pay_receive9 | 确认应收对账 |
+| order_pay_receive10 | 发起应收开票批次审批 |
+| order_pay_receive11 | 审核生成开票申请 |
+| order_pay_receive12 | 发票上传与登记 |
+| order_pay_receive13 | 应收核销 |
+
+### 订单+应收+应付（扩展，order_receive_pay1~13）
+
+**执行顺序：订单 → 应收 → 应付**
+
+| 链路 | 停止阶段 |
+|------|----------|
+| order_receive_pay1 | 发起应收对账批次 |
+| order_receive_pay2 | 确认应收对账 |
+| order_receive_pay3 | 发起应收开票批次审批 |
+| order_receive_pay4 | 审核生成开票申请 |
+| order_receive_pay5 | 发票上传与登记 |
+| order_receive_pay6 | 应收核销 |
+| order_receive_pay7 | 发起应付对账批次 |
+| order_receive_pay8 | 确认应付对账 |
+| order_receive_pay9 | 发起应付开票批次申请 |
+| order_receive_pay10 | 应付发票上传与登记 |
+| order_receive_pay11 | 发起付款需求 |
+| order_receive_pay12 | 审核生成付款单 |
+| order_receive_pay13 | 付款单核销 |
+
+> 所有链路基于链路依赖树模型：`order12` 是两类扩展流程的共同前置；`order_pay_receive7` 是 `order_pay_receive8` 的前置；`order_receive_pay6` 是 `order_receive_pay7` 的前置。
 
 ---
 
-## 日志与报告
+## Web 平台流程选择
 
-### 日志输出
+平台前端提供 5 张流程选择卡片：
 
-- 位置：`report/logs/auto_test_YYYYMMDD_HHMMSS.log`
-- 保留天数：7 天
+| 卡片 | Workflow 类型 | 可用 marker | 标注 |
+|------|--------------|------------|------|
+| 仅订单 | order_only | order1~12 | - |
+| 订单+应付（默认） | pay_receive | order_pay_receive1~7 | 默认 |
+| 订单+应付+应收（默认） | pay_receive | order_pay_receive8~13 | 默认 |
+| 订单+应收（扩展） | receive_pay | order_receive_pay1~6 | 扩展 |
+| 订单+应收+应付（扩展） | receive_pay | order_receive_pay7~13 | 扩展 |
 
-### 测试结果
-
-- 结果目录：`report/allure-results/`（Allure JSON 格式）
-- 摘要文件：`report/allure-results/test_summary.json`（conftest.py 自动生成）
-- 企微通知：CI 环境下由 `notify.py` 读取摘要后发送
-
-### 企微通知配置
-
-在 GitLab CI/CD Variables 中配置：
-
-| 变量名 | 说明 |
-|--------|------|
-| `WECOM_WEBHOOK_URL` | 企业微信群机器人 webhook 地址 |
-| `WECOM_MENTIONED_LIST` | 可选，被 @ 的用户手机号，逗号分隔 |
+切换卡片时，“运行链路”下拉框会自动过滤对应 marker 范围，并重置到该组第一个可用链路。
 
 ---
 
-## GitLab CI/CD
+## 快捷方法
 
-### 流水线阶段
+`OrderWorkflow` 提供 `run_until_xxx` 系列方法：
 
-| 阶段 | 说明 |
-|------|------|
-| `lint` | flake8 代码检查 |
-| `smoke_test` | pytest 冒烟测试，结果写入 JSON |
-| `notify` | 调用 `notify.py` 发送企微通知 |
+```python
+from workflows.order_workflow import OrderWorkflow
 
-### 流程说明
+# 订单基础链路
+OrderWorkflow.run_until_distribute()                # order2
+OrderWorkflow.run_until_stash()                    # order3
+OrderWorkflow.run_until_generate_sub_order()        # order5
+OrderWorkflow.run_until_record_fee(...)             # order6
+OrderWorkflow.run_until_record_audit()              # order7
+OrderWorkflow.run_until_order_lock()                # order8
+OrderWorkflow.run_until_invoice_apply()             # order9
+OrderWorkflow.run_until_supplier_advance()          # order10
+OrderWorkflow.run_until_fee_notice()                # order11
+OrderWorkflow.run_until_fee_confirm()               # order12
 
+# 应收链路（order13~18）
+OrderWorkflow.run_until_receive_account()           # order13
+OrderWorkflow.run_until_confirm_account()           # order14
+OrderWorkflow.run_until_invoice_batch()             # order15
+OrderWorkflow.run_until_invoice_batch_audit()      # order16
+OrderWorkflow.run_until_invoice_upload()            # order17
+OrderWorkflow.run_until_receive_writeoff()          # order18
+
+# 应付链路（order19~25）
+OrderWorkflow.run_until_payable_account()           # order19
+OrderWorkflow.run_until_confirm_payable()           # order20
+OrderWorkflow.run_until_payable_invoice_apply()     # order21
+OrderWorkflow.run_until_pay_demand()                # order23
+OrderWorkflow.run_until_pay_demand_audit()          # order24
+OrderWorkflow.run_until_pay_writeoff()              # order25
 ```
-lint → smoke_test → notify
-  │        │           │
-  │        └── JSON ────┘
-  │                   (notify.py 读取)
-  └── 失败则中断流水线
-```
 
 ---
 
-## 常见问题
+## 安全提示
 
-### Q: 如何配置登录账号密码？
-
-**方式一（推荐）：.env 文件**
-```bash
-cp .env.example .env
-# 编辑 .env 填入真实配置
-```
-
-**方式二：直接修改 settings.py**
-
-编辑 `config/settings.py` 中的默认值。
-
-### Q: `.env` 文件会泄露吗？
-
-不会。该文件已被 `.gitignore` 忽略，不会推送到仓库。
-
-### Q: 如何修改测试数据？
-编辑 `data/order_data.py` 中对应数据类的常量，或在调用时传入自定义参数。
-
-### Q: 如何跳过登录？
-`conftest.py` 中的 `global_login` fixture 负责登录，可根据需要修改。
-
-### Q: 如何添加新的接口？
-1. 在 `api/` 下创建新的 API 类
-2. 在 `data/` 下创建对应的测试数据类
-3. 在 `testcases/` 下编写测试用例
-
----
-
-## License
-
-MIT
+- `.env` 文件包含敏感凭据，已加入 `.gitignore`
+- 生产部署请修改 `ADMIN_PASSWORD` 和 `SECRET_KEY`
+- 如仅内网使用，`TOKEN_EXPIRE_SECONDS` 可设为 `0`（永不过期）
+- 建议在 Nginx 前配置 HTTPS（Let's Encrypt）

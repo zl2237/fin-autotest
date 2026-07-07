@@ -1,0 +1,82 @@
+# ============================================================================
+# 应付发票上传与登记配置（LK22）
+# ============================================================================
+# 涉及 4 个请求：
+#   1. uploadFile        - 上传发票文件（POST /api/home/common/uploadFile）
+#   2. invoiceAdd        - 登记应付发票（POST /api/finance/payInvoice/invoiceAdd）
+#   3. applyPage        - 按提单号查询应付开票申请ID（POST /api/Finance/PayInvoiceBatch/applyPage）
+#   4. allocationInvoiceFee - 分配发票到费用（POST /api/Finance/payInvoiceBatch/allocationInvoiceFee）
+#
+# 所有枚举值、常量默认值统一从本文件读取，Python 代码中禁止硬编码。
+# ============================================================================
+
+_constants:
+  # uploadFile 页面标识
+  upload_page: "pay"
+
+  # invoiceAdd 发票类型：1=增值税数电普通发票
+  invoice_type: "1"
+  # invoiceAdd 发票类型名称
+  invoice_type_name: "增值税数电普通发票"
+  # 发票金额（默认，与 usd_amount 保持一致，currency=USD）
+  invoice_amount: "180"
+  # 发票税额
+  invoice_tax_amount: "0.00"
+  # 汇率（与 batch_order_edit_pay.default_exchange_rate 一致）
+  invoice_exchange_rate: "7.0000"
+  # USD 金额（默认，与 invoice_amount 一致，currency=USD）
+  usd_amount: "180"
+  # buyer_identity：购买方身份（main=主体，customer=客户）
+  buyer_identity: "main"
+  # seller_identity：销售方身份（supplier=供应商）
+  seller_identity: "supplier"
+
+  # allocationInvoiceFee 分配币种
+  currency: "USD"
+
+# --------------------------------------------------------------------------
+# uploadFile 参数
+# --------------------------------------------------------------------------
+upload_file:
+  # 发票文件相对于 data/attachment/ 的文件名
+  # 配置在此处，data 层自动拼接为完整路径
+  filename: "tidb_pay_invoice.pdf"
+
+# --------------------------------------------------------------------------
+# invoiceAdd 字段（发票信息）
+# --------------------------------------------------------------------------
+# applyPage 参数（按提单号查询应付开票申请ID）
+# --------------------------------------------------------------------------
+apply_page:
+  # 分页
+  page_no: 1
+  page_size: 20
+  # 排序
+  sort_field: "create_time"
+  sort_order: "desc"
+  # 时间范围（秒，默认 1 年前到 1 天后）
+  create_time_year_offset: 365
+  create_time_day_offset: 1
+  # 筛选条件（空列表表示不限）
+  cancel_status: []
+  customer_id: []
+  main_id: []
+  pay_settle_object_id: []
+  currency: []
+  invoice_status: []
+  writeoff_status: []
+  create_id: []
+  params: {}
+
+# --------------------------------------------------------------------------
+# buyer：购买方（付款方，我方主体）信息
+# buyer_identity=main 时填主体信息
+buyer:
+  chinese_header: "上海一帜物流科技有限公司"
+  identifier_no: "91310118MA1JNY2070"
+
+# seller：销售方（收款方，供应商）信息
+# seller_identity=supplier 时填供应商信息
+seller:
+  chinese_header: "芜湖长信科技股份有限公司"
+  identifier_no: "913400007199042708"

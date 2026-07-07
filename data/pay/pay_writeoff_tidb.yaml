@@ -1,0 +1,54 @@
+# ============================================================================
+# 付款单核销配置（LK25）
+# ============================================================================
+# 涉及 4 个请求：
+#   1. formPage            - 查询付款单列表
+#   2. writeoffPayFormList - 核销付款单列表
+#   3. orderFeePage        - 查询可核销费用列表
+#   4. writeoffBatch       - 执行核销
+#
+# 所有枚举值、常量默认值统一从本文件读取，Python 代码中禁止硬编码。
+# ============================================================================
+
+_constants:
+  # formPage 分页参数
+  page_no: 1
+  page_size: 20
+
+# formPage 查询参数
+form_page:
+  # sort_field：排序字段
+  sort_field: "create_time"
+
+  # sort_order：排序方向
+  sort_order: "desc"
+
+  # status：付款单状态 [2]=已生效
+  status: ["2"]
+
+# writeoffBatch 核销参数
+writeoff_batch:
+  # action：提交动作
+  action: "submit"
+
+  # writeoff_name：核销名称
+  writeoff_name: "测试核销记录"
+
+  # fee_match_type：费用匹配类型
+  fee_match_type: "1"
+
+  # writeoff_type：核销类型
+  writeoff_type: "1"
+
+  # receipt_time：回执时间（当天开始时间戳）
+  # 计算方式：当天 00:00:00 的 Unix 时间戳
+  # 代码中动态计算
+
+  # exchange_rate：汇率
+  exchange_rate: 1
+
+  # main_bank_id：主账户银行ID
+  main_bank_id: "45"
+
+  # statement_currency：核销对账币种
+  statement_currency: "USD"

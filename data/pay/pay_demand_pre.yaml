@@ -1,0 +1,62 @@
+# ============================================================================
+# 发起付款需求配置（LK23）
+# ============================================================================
+# 涉及 3 个请求：
+#   1. financePayList           - 查询应付费用列表（获取 select_list）
+#   2. paymentList              - 付款需求预览（获取 payment_list 及汇总数据）
+#   3. demandEditByOrder       - 提交付款需求（action=submit）
+#
+# 所有枚举值、常量默认值统一从本文件读取，Python 代码中禁止硬编码。
+# ============================================================================
+
+_constants:
+  # operate_type：1=按提单对账
+  operate_type: 1
+
+  # batch_type：1=批次类型
+  batch_type: 1
+
+  # 分页与排序
+  page_no: 1
+  page_size: 50
+
+  # 时间范围（天数）
+  page_year_offset: 365
+
+# financePayList 查询参数（付款需求模式）
+finance_pay_list:
+  # search_style：payment=付款需求查询
+  search_style: "payment"
+
+# paymentList / demandEditByOrder 参数
+payment_demand:
+  # operation_type：1=新建付款需求
+  operation_type: 1
+
+  # select_node_user：审批节点用户（运行时从 .env 的 ORDER_CREATE_ID 读取，不在此硬编码）
+
+  # split_dimension：拆分维度
+  split_dimension:
+    - "customer_id"
+    - "main_id"
+    - "pay_settle_object_id"
+    - "currency"
+
+  # audit_msg：审核消息
+  audit_msg:
+    title: "付款需求ID"
+    code: ""
+    msgs:
+      - "付款需求审核"
+
+  # action：submit=正式提交
+  action_submit: "submit"
+
+  # fee_currency：币种（运行时从 select_list 获取）
+  fee_currency: "USD"
+
+  # demand_remark：需求备注
+  demand_remark: ""
+
+  # pay_demand_name：付款需求名称
+  pay_demand_name: ""

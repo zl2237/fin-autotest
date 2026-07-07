@@ -1,0 +1,99 @@
+# ============================================================================
+# 应收核销配置（LK18）
+# ============================================================================
+# 应收核销涉及 2 个请求：
+#   1. feeTakePage   - 按提单号分页查询费用实付 ID 列表（order_fee_real_id）
+#   2. writeoffBatch - 应收核销（依赖 step1 返回的 order_fee_real_id 列表）
+#
+# step1 响应 data.data[].order_fee_real_id 会被注入到 step2 的
+# writeoff_object[].order_fee_real_id 字段，构成完整核销链路。
+# ============================================================================
+
+_constants:
+  # action
+  action_submit: "submit"
+
+  # audit_note：常规核销留空（不走审批流）；走审批流时填写备注
+  audit_note_default: ""
+
+  # writeoff_name：用户自填的核销批次名称（示例值）
+  writeoff_name_default: "Test Receivable Write-off"
+
+  # fee_match_type
+  fee_match_type: "1"
+
+  # writeoff_type
+  writeoff_type: "1"
+
+  # writeoff_mode
+  writeoff_mode: "fee"
+
+  # select_node_user：常规核销为空数组（不走指定人审批）
+  # 走审批流时填入 user 列表，例如：[{node_sort: "0", user_id: "60"}]
+  select_node_user: []
+
+  # statement 默认值（多币种时由 code 动态生成）
+  statement:
+    statement_currency: "USD"
+    exchange_rate: 1
+    ischangeRate: false
+    main_bank_id: "77"   # 固定值，由数据层配置（user-confirmed）
+    receipt_voucher: ""
+    writeoff_amount_cny: "0.00"
+    writeoff_amount_usd: "0.00"
+
+  # 分页默认值
+  page_no: 1
+  page_size: 20
+
+  # 时间偏移（秒）
+  page_year_offset: 365
+  page_day_offset: 1
+  timestamp_ms_factor: 1000
+
+  # 排序
+  sort_field: "fee_create_time"
+  sort_order_desc: "desc"
+
+  # is_penetrate
+  is_penetrate: "0"
+
+  # 主体名称（与系统对齐）
+  main_name: "青岛易汇智供应链管理有限公司"
+  main_id: "31"
+
+# ---------------------------------------------------------------------------
+# feeTakePage（按提单号分页查询费用实付 ID 列表）
+# ---------------------------------------------------------------------------
+fee_take_page:
+  page_no: 1
+  page_size: 20
+  # create_time 由 code 动态生成（当前时间 - 1 年 ~ 当前时间 + 1 年）
+  customer_id: []
+  bl_nos: []
+  # bl_no 由链路动态注入
+  is_penetrate: "0"
+  sort_field: "fee_create_time"
+  sort_order: "desc"
+  params: {}
+  # create_time_start / create_time_end 由 code 动态生成
+
+# ---------------------------------------------------------------------------
+# writeoffBatch（应收核销）
+# ---------------------------------------------------------------------------
+writeoff_batch:
+  action: "submit"
+  audit_note: ""
+  # writeoff_object 由 code 从 feeTakePage 响应动态构建
+  # 字段：order_fee_real_id, un_writeoff_amount
+  writeoff_name: "Test Receivable Write-off"
+  fee_match_type: "1"
+  writeoff_type: "1"
+  writeoff_mode: "fee"
+  # 以下金额字段（_usd_total / _cny_total）由 code 根据 writeoff_object 求和后填充
+  # un_writeoff_amount_usd_total / un_writeoff_amount_cny_total
+  # use_writeoff_amount_usd_total / use_writeoff_amount_cny_total
+  # statement_amount_cny_total / statement_amount_usd_total
+  select_node_user: []
+  # main_id / main_name 由链路动态注入
+  # statement 数组由 code 根据币种动态生成

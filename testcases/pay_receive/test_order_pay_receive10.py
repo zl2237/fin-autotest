@@ -1,0 +1,54 @@
+"""
+测试链路 22：订单+应付（pay_receive），完整流程
+执行顺序：订单 1~12 步 + 应付 21~22 步
+前置条件：订单 12 步完成
+"""
+import allure
+import pytest
+
+from workflows.pay_receive_workflow import PayReceiveWorkflow
+from data.order import BookRealAmountData
+from utils import generate_bl_no
+from testcases.pay_receive.helpers import _build_fee_config, _assert_audit_and_fee_doc_ok, _assert_receive_account_ok, _assert_confirm_receive_ok
+
+
+@pytest.mark.order_pay_receive10
+class TestOrderPayReceive10InvoiceBatch:
+
+    @allure.severity("critical")
+    def test_order_pay_receive10_invoice_batch(self):
+        bl_no = generate_bl_no(110)
+
+        with allure.step("执行完整订单流程，运行至应收开票批次节点 invoice_batch"):
+            result = PayReceiveWorkflow.run(
+                stop_at="invoice_batch",
+                bl_no=bl_no,
+                fee_configs=[_build_fee_config()],
+            )
+
+        with allure.step("校验：审核及费用单据信息"):
+            _assert_audit_and_fee_doc_ok(result)
+
+        with allure.step("校验：应收账户数据"):
+            _assert_receive_account_ok(result)
+
+        with allure.step("校验：确认应收对账结果"):
+            _assert_confirm_receive_ok(result)
+
+        with allure.step("校验：应收开票批次接口返回全部成功"):
+            invoice_result = result["invoice_batch_result"]
+            assert invoice_result["put_list_resp"].status_code == 200
+            assert invoice_result["put_list_data"].get("code") == 200
+            assert invoice_result["rate_resp"].status_code == 200
+            assert invoice_result["rate_data"].get("code") == 200
+            assert invoice_result["sell_info_resp"].status_code == 200
+            assert invoice_result["sell_info_data"].get("code") == 200
+            assert invoice_result["invoice_submit_resp"].status_code == 200
+            assert invoice_result["invoice_submit_data"].get("code") == 200
+            assert invoice_result["invoice_submit_data"].get("msg") == "成功"
+            assert invoice_result["page_resp"].status_code == 200
+            assert invoice_result["page_data"].get("code") == 200
+            assert invoice_result["page_data"].get("msg") == "成功"
+
+        with allure.step("校验流程终止节点"):
+            assert result["stop_at"] == "invoice_batch"

@@ -1,0 +1,106 @@
+# ========================================================================
+# 费用配置 - 客户应收 + 供应商应付（各2条，验证多对费用）
+# 对齐真实请求体
+# ========================================================================
+
+# 录费用接口 bookRealAmountEdit 的请求体默认字段
+fee_action: submit
+fee_discount_ratio: ""
+fee_service_project: "booking_space"
+fee_import_status: 0
+
+# 费用行默认字段
+row_discount_status: "0"
+row_pay_sync_status: 1
+row_policy_sub_status_name: "异常"
+row_customer_init_main_name: "青岛易航道物流科技有限公司"
+row_supplier_init_main_name: "上海一帜物流科技有限公司"
+row_service_project: "booking_space"
+
+customer:
+  - cost_id: "17"
+    cost_name: "海运费"
+    settle_object_id: "62103"
+    subsidy_category: "0"
+    currency: "USD"
+    unit_price: "100.00"
+    unit: "box"
+    specs: "20GP"
+    num: 1
+    amount: "100.00"
+    discount_amount: "100.00"
+    discount_ratio: 100
+    remark: "测试备注"
+    fee_type: 0
+  - cost_id: "18"
+    cost_name: "改单费"
+    settle_object_id: "62103"
+    subsidy_category: "0"
+    currency: "USD"
+    unit_price: "50.00"
+    unit: "box"
+    specs: "20GP"
+    num: 1
+    amount: "50.00"
+    discount_amount: "50.00"
+    discount_ratio: 100
+    remark: "测试备注2"
+    fee_type: 0
+  - cost_id: "19"
+    cost_name: "美国自动舱单费"
+    settle_object_id: "62103"
+    subsidy_category: "0"
+    currency: "USD"
+    unit_price: "30.00"
+    unit: "box"
+    specs: "20GP"
+    num: 1
+    amount: "30.00"
+    discount_amount: "30.00"
+    discount_ratio: 100
+    remark: "测试备注3"
+    fee_type: 0
+
+supplier:
+  - cost_id: "17"
+    cost_name: "海运费"
+    settle_object_id: "92102"
+    subsidy_category: "0"
+    currency: "USD"
+    unit_price: "100.00"
+    unit: "box"
+    specs: "20GP"
+    num: 1
+    amount: "100.00"
+    discount_amount: "100.00"
+    discount_ratio: 100
+    remark: "测试备注"
+    fee_type: 0
+  - cost_id: "18"
+    cost_name: "改单费"
+    settle_object_id: "92102"
+    subsidy_category: "0"
+    currency: "USD"
+    unit_price: "50.00"
+    unit: "box"
+    specs: "20GP"
+    num: 1
+    amount: "50.00"
+    discount_amount: "50.00"
+    discount_ratio: 100
+    remark: "测试备注2"
+    fee_type: 0
+  - cost_id: "19"
+    cost_name: "美国自动舱单费"
+    settle_object_id: "92102"
+    subsidy_category: "0"
+    currency: "USD"
+    unit_price: "30.00"
+    unit: "box"
+    specs: "20GP"
+    num: 1
+    amount: "30.00"
+    discount_amount: "30.00"
+    discount_ratio: 100
+    remark: "测试备注3"
+    fee_type: 0

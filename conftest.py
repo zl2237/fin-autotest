@@ -1,4 +1,6 @@
 import json
+import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -6,6 +8,49 @@ import pytest
 from utils.logger import log
 from core.http_client import http
 from config.settings import LOGIN_URL, USERNAME, PASSWORD, TOKEN_FIELD, TOKEN_TYPE, AUTH_HEADER
+
+_allure_actual_dir = None
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_configure(config):
+    """测试运行前按进程隔离 allure-results 目录，避免多人共用时互相删除。"""
+    global _allure_actual_dir
+    import datetime
+    pid_suffix = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{os.getpid()}"
+    allure_dir = Path(f"report/allure-results-{pid_suffix}")
+    if allure_dir.exists():
+        shutil.rmtree(allure_dir)
+    allure_dir.mkdir(parents=True, exist_ok=True)
+    config.option.alluredir = str(allure_dir)
+    _allure_actual_dir = allure_dir
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session, exitstatus):
+    """兜底：如果 allure 实际写到了默认目录，移到隔离目录。"""
+    global _allure_actual_dir
+    if _allure_actual_dir is None:
+        return
+
+    default_dir = Path("report/allure-results")
+    actual_dir = None
+
+    if default_dir.exists() and any(default_dir.iterdir()):
+        actual_dir = default_dir
+    elif _allure_actual_dir.exists() and any(_allure_actual_dir.iterdir()):
+        actual_dir = _allure_actual_dir
+
+    if actual_dir and actual_dir != _allure_actual_dir:
+        _allure_actual_dir.mkdir(parents=True, exist_ok=True)
+        for item in actual_dir.iterdir():
+            dest = _allure_actual_dir / item.name
+            if dest.exists():
+                if dest.is_dir():
+                    shutil.rmtree(dest)
+                else:
+                    dest.unlink()
+            shutil.move(str(item), str(dest))
 
 
 def get_nested_value(data, key: str):
@@ -86,7 +131,14 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     report_dir = Path("report")
     report_dir.mkdir(exist_ok=True)
 
-    summary_path = Path("report/allure-results") / "test_summary.json"
+    target_dir = _allure_actual_dir if _allure_actual_dir is not None else Path("report/allure-results")
+    summary_path = target_dir / "test_summary.json"
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+
+    errors = []
+    for failed in results["failed"]:
+        errors.append({"name": failed["name"], "message": failed["message"]})
+
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump({
             "total": len(results["passed"]) + len(results["failed"]) + len(results["skipped"]),
@@ -94,6 +146,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             "failed": len(results["failed"]),
             "skipped": len(results["skipped"]),
             "details": results,
+            "errors": errors,
         }, f, ensure_ascii=False, indent=2)
 
     terminalreporter.write_line(f"📄 报告已生成: {summary_path}")

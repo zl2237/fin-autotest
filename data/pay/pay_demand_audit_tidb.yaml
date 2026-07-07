@@ -1,0 +1,33 @@
+# ============================================================================
+# 审核生成付款单配置（LK24）
+# ============================================================================
+# 涉及 2 个请求：
+#   1. auditPage           - 查询待审核列表
+#   2. auditExecute       - 执行审批（通过）
+#
+# 所有枚举值、常量默认值统一从本文件读取，Python 代码中禁止硬编码。
+# ============================================================================
+
+_constants:
+  # auditPage 分页参数
+  page_no: 1
+  page_size: 20
+
+# auditPage 查询参数
+audit_page:
+  # active_tab：待审核标签
+  active_tab: "examine_wait"
+
+  # audit_type：审批类型（payDemand=付款需求）
+  audit_type: ["payDemand"]
+
+  # sort_field：排序字段
+  sort_field: "expedite_num"
+
+  # sort_order：排序方向
+  sort_order: "desc"
+
+# auditExecute 审批参数
+audit_execute:
+  # audit_status：2=审批通过
+  audit_status: 2

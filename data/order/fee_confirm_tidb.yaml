@@ -1,0 +1,7 @@
+action: submit
+finance_ids:
+  - "322987929146228736_OrderFinance"
+  - "322987929351749632_OrderFinance"
+bank_ids:
+  - "10_MainBank"
+  - "11_MainBank"

@@ -4,3 +4,4 @@ loguru>=0.7.2
 allure-pytest>=2.13.2
 python-dotenv>=1.0.0
 PyYAML>=6.0
+pytest-repeat>=0.9.3

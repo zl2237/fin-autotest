@@ -1,0 +1,91 @@
+# ============================================================================
+# 应收对账配置
+# ============================================================================
+# 发起应收对账批次涉及三个请求：
+#   1. financePutList          - 查询应收款项列表（预填 select_list）
+#   2. orderReceiveAccountEdit (action=check)  - 预校验
+#   3. orderReceiveAccountEdit (action=submit) - 正式发起对账
+#
+# 确认应收对账涉及四个请求：
+#   1. receiveAccountDetail    - 查询批次详情
+#   2. receiveConfirmList      - 查询应收确认列表
+#   3. accountConfirm          - 确认应收对账
+#   4. receiveAccountPage      - 确认后查询批次列表
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# 全局常量（枚举值、默认分页参数、时间偏移等）
+# ---------------------------------------------------------------------------
+_constants:
+  # operate_type：1=应收（与系统定义保持一致，勿随意修改）
+  operate_type: 1
+
+  # account_type：2=跨下单客户（与系统定义保持一致）
+  account_type: "2"
+
+  # confirm_type：0=待确认（与系统定义保持一致）
+  confirm_type: 0
+
+  # action：预校验 / 正式提交
+  action_check: "check"
+  action_submit: "submit"
+
+  # 分页默认值
+  page_no: 1
+  page_size: 50          # financePutList / receiveConfirmList
+  page_size_large: 20    # receiveAccountPage
+
+  # 时间偏移量（秒）
+  page_year_offset: 365    # receiveAccountPage 默认查询起始时间 = 当前时间 - 365 天
+  page_day_offset: 1       # receiveAccountPage 默认查询结束时间 = 当前时间 + 1 天
+  timestamp_ms_factor: 1000  # 秒转毫秒乘数
+
+  # sort
+  sort_field: "create_time"
+  sort_order_desc: "desc"
+
+  # 主体名称（用于 financePutList / orderReceiveAccountEdit 的 main_name 和 customer_main_name）
+  customer_main_name: "青岛易汇智供应链管理有限公司"
+  main_name: "青岛易汇智供应链管理有限公司"
+
+# ---------------------------------------------------------------------------
+# financePutList（查询应收款项列表）
+# ---------------------------------------------------------------------------
+finance_put_list:
+  page_no: 1
+  page_size: 50
+  # bl_no 由链路动态注入
+  operate_type: 1
+  search_style: "account"
+  account_simple_name: null
+  account_type: "2"
+  customer_id: null
+  # put_settle_object_id 由链路动态注入
+  main_id: "31"
+  pay_settle_object_id: null
+
+# ---------------------------------------------------------------------------
+# orderReceiveAccountEdit（预校验 & 正式提交）
+# ---------------------------------------------------------------------------
+receive_account_edit:
+  account_simple_name: null
+  account_type: "2"
+  customer_id: null
+  # put_settle_object_id 由链路动态注入
+  main_id: "31"
+  pay_settle_object_id: null
+  # selection_time 由链路动态生成
+  action: "submit"
+  operate_type: 1
+  # receive_account_id 由链路动态注入（check 响应返回，submit 时使用）
+  # main_name / put_settle_object / pay_settle_object 由链路动态注入
+  # select_list 由 financePutList 响应动态构建
+
+# ---------------------------------------------------------------------------
+# receiveAccountPage（查询批次分页列表）
+# ---------------------------------------------------------------------------
+receive_account_page:
+  page_no: 1
+  page_size: 20
+  sort_field: "create_time"
+  sort_order: "desc"

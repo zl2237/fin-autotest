@@ -1,0 +1,313 @@
+# ========================================================================
+# 订单配置 - 所有订单相关数据
+# ========================================================================
+
+# 基础字段：新增/分发/提交共用
+base_params:
+  client_expand_name: "荣洋"
+  client_expand_id: "16"
+  m_delivery_type: ""
+  customer_id: "60934"
+  customer_name: ""
+  service_id: "40"
+  service_name: "李明丹tidb"
+  operator_id: "293"
+  operator_name: ""
+  customer_contact_id: ""
+  customer_contact_name: ""
+  main_sort: "易航道-易汇联-青岛易汇航-上海一帜"
+  policy_id: "296905601001193472"
+  policy_name: "陆旭阳多主体服务策略-自动匹配"
+  policy_type: "JSZX"
+  service_items:
+    - "booking_space"
+  business_type: "1"
+  trade_term: ""
+  carrier: ""
+  carrier_id: ""
+  etd: ""
+  atd: ""
+  ship_name: ""
+  voy: ""
+  pol: ""
+  pot: ""
+  pod: ""
+  del: ""
+  country_name: ""
+  airline_type: ""
+  ocean_type: ""
+  terms_payment: "T/T"
+  terms_transport: "CY/CY"
+  pay_type: ""
+  customer_order_sn: "测试客户单号"
+  terms_shipment: ""
+  shipper: ""
+  consignee: ""
+  notifier: ""
+  ship_mark: ""
+  commodity: ""
+  notes: ""
+  cargo_type: ""
+  packer: ""
+  num: ""
+  gross_weight: null
+  bulk: null
+  sea_trans_cost: ""
+  teu: ""
+  volume: ""
+  volume_desc: ""
+  order_sn: ""
+  status: "1"
+  sea_trans_currency: "USD"
+  container: []
+  message_board: []
+  customer_file_list: []
+  remark: ""
+  policy_type_name: ""
+  main_ids: "1,3,2,6"
+  action: "submit"
+  entrust_status: 1
+  order_file: []
+
+# 提交必填字段：与 base_params 合并后构成完整提交 payload
+submit_fields:
+  trade_term: "CIF"
+  carrier: "ACL"
+  carrier_id: "1"
+  etd: 1777996800
+  atd: 1777996800
+  ship_name: "a"
+  voy: "a"
+  pol: "ANTING,CHINA"
+  pot: "AOSHANWEI,CHINA"
+  pod: "AOSHANWEI,CHINA"
+  del: "AOSHANWEI,CHINA"
+  country_name: "CHINA"
+  airline_type: "中国"
+  ocean_type: "近洋"
+  pay_type: "FREIGHT PREPAID"
+  terms_shipment: "测试装运条款"
+  ship_mark: "测试唛头"
+  commodity: "测试品名"
+  notes: "测试备注"
+  cargo_type: "普货"
+  packer: "测试包装锡纸"
+  bulk: "999"
+  teu: ""
+  volume: "1*AIR"
+  volume_desc: "特种柜"
+  num: "1"
+  gross_weight: "1"
+  sea_trans_cost: "1.00"
+  shipper: "测试发货人"
+  consignee: "测试收货人"
+  notifier: "测试通知人"
+  customer_file_list:
+    - client_company_id: "60934"
+      client_company_name: "北京火山引擎科技有限公司"
+      trustee_company_id: "1"
+      trustee_company_name: "青岛易航道物流科技有限公司"
+      document_type: "BOOK_CUSTOMER"
+      file_url: "https://fnzxnfs-tidb.21eflag.com/resource/file/getFile?file_name=6a198b9b7953b.pdf&voucher=6a18e7981acf2"
+      file_name: "6a198b9b7953b.pdf"
+      file_id: "116892"
+      file_type: "pdf"
+  service_project:
+    booking_space: false
+    customs_clearance: false
+    manifest: false
+    insurance: false
+    trucking: false
+  service_project_amount:
+    booking_space: false
+    customs_clearance: false
+    manifest: false
+    insurance: false
+    trucking: false
+  order_finance_arr: []
+  order_main_bank_arr: []
+  order_sub: []
+  customer_payment_collection_date: null
+  customer_put_writeoff_date: ""
+  supplier_due_date: "0"
+  discount_ratio: ""
+  cancel_remark: ""
+  cancel_time: "0"
+  effective_id: "0"
+  effective_by: ""
+  effective_time: "0"
+  business_time: "0"
+  reverse_status: "0"
+  proprietary_business_status: "0"
+  loan_status: null
+  first_status: null
+  second_status: null
+  loan_pay_status: ""
+  change_type: "0"
+  copy_order_id: "0"
+  real_fee_locked: false
+  is_sync_es: "0"
+  expect_discount_status: "0"
+  real_discount_status: "0"
+  remark: ""
+  audit_type: ""
+  is_system_generate: "0"
+  is_financing: "0"
+  confirm_status: "0"
+  is_traverse: "0"
+  financing_apply_amount: "0.00"
+  financing_apply_amount_cny: "0.00"
+  financing_apply_amount_usd: "0.00"
+  fund_code: ""
+  fund_name: null
+  track_atd: "0"
+  finance_date: "0"
+  pol_cn: null
+  pol_country_id: "1"
+  pol_country: "CHINA"
+  pol_country_cn: "中国"
+  pod_cn: null
+  pot_cn: ""
+  del_cn: null
+  country_id: "1"
+  country_name_cn: "中国"
+  customer_period: "60"
+  customer_settlement_date: "10"
+  period_rule: "0"
+  term_rule_name: null
+  customer_due_date: "0"
+  customer_put_date: "0"
+  customer_put_date_manual: "0"
+  supplier_invoice_date: "0"
+  supplier_invoice_taketime: ""
+  real_cost_date: "0"
+  customer_invoice_request_date: "0"
+  first_financing_doc_ok_date: "0"
+  second_financing_doc_ok_date: "0"
+  insurance_doc_ok_date: "0"
+  customer_confirm_date: "0"
+  is_delayed_recovery: "否"
+  delayed_recovery_usd: ""
+  delayed_recovery_cny: ""
+  delayed_time: ""
+  expect_fee_status: "0"
+  real_fee_status: "0"
+  fee_lock_status: "0"
+  pay_account_status: "0"
+  account_status: "0"
+  real_pay_usd: "0.00"
+  real_pay_cny: "0.00"
+  real_put_usd: "0.00"
+  real_put_cny: "0.00"
+  real_put_discount_rate: "0.00"
+  exchange_rate: "0.0000"
+  folde_pay_usd: "0.00"
+  folde_put_usd: "0.00"
+  folde_pay_total: "0.00"
+  folde_put_total: "0.00"
+  gross_margin: "0.00"
+  gross_margin_rate: "0.00"
+  is_special_pay: "0"
+  is_loan_before_invoice: "0"
+  is_fee_miss: "0"
+  fee_miss_name: ""
+  is_usd_project: "2"
+  pay_status: "1"
+  entrust_status: "2"
+  is_traverse_name: "未推送"
+  policy_match: "auto"
+  policy_match_name: "自动匹配"
+  real_discount_status_name: "—"
+  expect_discount_status_name: "—"
+  expect_policy_status_name: ""
+  policy_status_name: ""
+  subsidy_category_name: "—"
+  expect_subsidy_category_name: "—"
+  real_subsidy_category_name: "—"
+  pol_port_name: "ANTING,CHINA"
+  pod_port_name: "AOSHANWEI,CHINA"
+  del_port_name: "AOSHANWEI,CHINA"
+  cargo_type_name: ""
+  period_rule_name: ""
+  trade_term_name: ""
+  carrier_name: ""
+  terms_transport_name: "CY/CY"
+  terms_payment_name: "T/T"
+  pay_type_name: ""
+  m_delivery_type_name: ""
+  audit: []
+  enable: "1"
+  discount_status: "2"
+  discount_currency: ""
+  book_upload_date: "0"
+  trans_cost_put_preserve_date: "0"
+  bl_no_upload_date: "0"
+  customer_invoice_status_name: "未开票"
+  customer_writeoff_status_name: "未核销"
+  supplier_account_status_name: "未结清"
+  supplier_invoice_status_name: "未开票"
+  supplier_writeoff_status_name: "未核销"
+  customer_account_status_name: "未结清"
+  reverse_status_name: "否"
+  is_delayed_recovery_name: "否"
+  finance_status: true
+  policy_type_name: "结算业务"
+  business_type_name: "海运整箱"
+  policy_main_arr:
+    - fee_main_id: "1"
+      main_name: "青岛易航道物流科技有限公司"
+    - fee_main_id: "3"
+      main_name: "青岛易汇联供应链管理有限公司"
+    - fee_main_id: "2"
+      main_name: "青岛易汇航供应链管理有限公司"
+    - fee_main_id: "6"
+      main_name: "上海一帜物流科技有限公司"
+  main_ids_name: "易航道,易汇联,青岛易汇航,上海一帜"
+  order_sub_no: ""
+
+# 供应商模板
+supplier_template:
+  - is_manual: ""
+    is_primary: "1"
+    isset_fee: "0"
+    isset_supplier: "1"
+    order_id: ""
+    order_supplier_id: ""
+    service_item: "booking_space"
+    service_item_name: "订舱"
+    settle_object_id: ""
+    settlement_date: null
+    supplier_id: "61224"
+    supplier_name: "芜湖长信科技股份有限公司"
+    supplier_pay_date: null
+    supplier_period: null
+    user_id: "16"
+    user_name: "荣洋"
+
+# 箱型模板
+container_template:
+  - box_type: "20GP"
+    box_num: "1"
+    box_no:
+      - "1"
+    seal_number:
+      - ""
+    sea_trans_unit_price: "1"
+
+# 分页测试数据
+pagination:
+  - page_no: 1
+    page_size: 10
+  - page_no: 1
+    page_size: 50
+  - page_no: 2
+    page_size: 20
+
+# 排序测试数据
+sort:
+  - sort_field: "update_time"
+    sort_order: "desc"
+  - sort_field: "update_time"
+    sort_order: "asc"
+  - sort_field: "create_time"
+    sort_order: "desc"

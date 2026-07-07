@@ -6,7 +6,11 @@ from datetime import datetime
 if not os.path.exists(LOG_DIR):
     os.makedirs(LOG_DIR)
 
-log_file = os.path.join(LOG_DIR, f"auto_test_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+# 加 PID 隔离，避免多进程同时启动时日志文件名冲突
+log_file = os.path.join(
+    LOG_DIR,
+    f"auto_test_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{os.getpid()}.log"
+)
 
 logger.add(
     log_file,

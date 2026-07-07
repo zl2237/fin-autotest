@@ -7,6 +7,7 @@ stages:
 lint:
   stage: lint
   rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
@@ -21,6 +22,7 @@ lint:
 smoke_test:
   stage: smoke_test
   rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
@@ -28,11 +30,14 @@ smoke_test:
     - python3 -m pip install -r requirements.txt --break-system-packages
   script:
     - mkdir -p report/allure-results
-    - python3 -m pytest testcases/ -m "entrust or business or validation or add or distribute or submit or workflow" --alluredir report/allure-results
+    - python3 -m pytest testcases/ -m order_pay_receive13 --alluredir report/allure-results
+  after_script:
+    - echo "smoke_test done"
   artifacts:
     when: always
     paths:
       - report/
+    expire_in: 7 days
   needs:
     - lint
   tags:
@@ -41,9 +46,15 @@ smoke_test:
 # ③ 企微通知
 notify:
   stage: notify
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
   script:
     - python3 notify.py
   needs:
-    - smoke_test
+    - job: smoke_test
+      optional: true
   tags:
     - api

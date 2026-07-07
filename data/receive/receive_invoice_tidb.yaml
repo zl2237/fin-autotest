@@ -1,0 +1,85 @@
+# ============================================================================
+# 应收开票批次配置
+# ============================================================================
+# 发起应收开票批次审批（LINK15）涉及 6 个请求：
+#   1. financePutList (search_style=invoice)    - 查询应收款项列表（开票模式）
+#   2. monthExchangeRate                       - 获取汇率
+#   3. getSellInfo                            - 获取开票方信息（买家/卖家）
+#   4. batchOrderEdit (action=check)          - 预校验
+#   5. batchOrderEdit (action=submit)         - 正式提交开票批次
+#   6. batchpage                             - 验证批次创建
+# ============================================================================
+
+_constants:
+  # operate_type：1=应收（与系统定义保持一致）
+  operate_type: 1
+
+  # account_type：2=跨下单客户
+  account_type: "2"
+
+  # confirm_type：0=待确认
+  confirm_type: 0
+
+  # batch_type：1=应收开票
+  batch_type: 1
+
+  # search_style
+  search_style_invoice: "invoice"
+
+  # action
+  action_check: "check"
+  action_audit: "audit"
+  action_submit: "submit"
+
+  # style：1=正式发票
+  style_formal: "1"
+
+  # apply_type：2=跨下单客户
+  apply_type_cross_customer: "2"
+
+  # usd_is_turn
+  usd_turn_enabled: "1"
+  usd_turn_disabled: ""
+
+  # merge_with_cny：2=否
+  merge_with_cny_no: "2"
+
+  # rate_type：1=指定汇率
+  rate_type_specify: "1"
+
+  # 默认汇率
+  default_exchange_rate: 7
+
+  # 默认发票格式/类型/项目
+  default_invoice_form: "1"
+  default_invoice_type: "1"
+  default_invoice_item: "2"
+
+  # 分页
+  page_no: 1
+  page_size: 20
+
+  # 时间偏移量（秒）
+  page_year_offset: 365
+  page_day_offset: 1
+  timestamp_ms_factor: 1000
+
+  # 排序
+  sort_field: "create_time"
+  sort_order_desc: "desc"
+
+# --------------------------------------------------------------------------
+# batchOrderEdit（应收开票）内联对象默认值
+# --------------------------------------------------------------------------
+# 适用于 usd_require / cny_require 内联结构
+batch_order_edit:
+  # fast_remark：固定 JSON 空数组
+  fast_remark: "[]"
+  # invoice_apply_simple：开票申请简称（默认空字符串，可按需配置）
+  invoice_apply_simple: ""
+  # purchaser_tax_number：购方税号（默认空）
+  purchaser_tax_number: ""
+  # require_other：特殊要求（默认暂无要求）
+  require_other: "暂无要求"
+  # remark：备注（默认破折号）
+  remark: "—"
