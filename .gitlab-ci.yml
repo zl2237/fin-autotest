@@ -89,10 +89,8 @@ deploy:
   before_script:
     - eval $(ssh-agent -s)
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    - echo "$SSH_KEY_B64" | base64 -d | tr -d '\r' | sed '/^\s*$/d' > /tmp/deploy_key
-    - chmod 600 /tmp/deploy_key
-    - ssh-add /tmp/deploy_key
-    - rm -f /tmp/deploy_key
+    # 直接加载本机已验证正常的密钥文件，不走GitLab变量
+    - ssh-add ~/.ssh/ci_deploy_key
     - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
   script:
     - |
