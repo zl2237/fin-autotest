@@ -29,7 +29,6 @@ def pytest_configure(config):
 @pytest.hookimpl(trylast=True)
 def pytest_sessionfinish(session, exitstatus):
     """兜底：如果 allure 实际写到了默认目录，移到隔离目录。"""
-    global _allure_actual_dir
     if _allure_actual_dir is None:
         return
 
