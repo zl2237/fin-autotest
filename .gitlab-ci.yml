@@ -1,38 +1,71 @@
 stages:
   - lint
   - smoke_test
+  - deploy
   - notify
 
-# ① 代码检查
+# ============================================================
+# ① 代码检查（仅 main 分支）
+# ============================================================
 lint:
   stage: lint
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
   before_script:
     - python3 -m pip install flake8 --break-system-packages
   script:
     - python3 -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+  after_script:
+    - |
+      mkdir -p report
+      if [ $CI_JOB_STATUS = "success" ]; then
+        echo '{"status":"pass","message":"代码检查环节（lint）pass"}' > report/lint_status.json
+      else
+        echo '{"status":"fail","message":"代码检查环节（lint）fail"}' > report/lint_status.json
+      fi
+  artifacts:
+    when: always
+    paths:
+      - report/
+    expire_in: 7 days
   tags:
     - api
 
-# ② 冒烟测试
+# ============================================================
+# ② 冒烟测试（仅 main 分支）
+# ============================================================
 smoke_test:
   stage: smoke_test
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
   before_script:
     - python3 -m pip install -r requirements.txt --break-system-packages
   script:
     - mkdir -p report/allure-results
-    - python3 -m pytest testcases/ -m order_pay_receive13 --alluredir report/allure-results
+    - python3 -m pytest testcases/ -m order1 --alluredir report/allure-results
   after_script:
-    - echo "smoke_test done"
+    - |
+      mkdir -p report
+      python3 -c "
+      import json, glob, os
+      results = []
+      for f in glob.glob('report/allure-results/*.json'):
+          try:
+              d = json.load(open(f))
+              name = d.get('name','')
+              status = d.get('status','')
+              msg = d.get('statusMessage','') or d.get('message','')
+              if 'passed' in status:
+                  results.append({'name': name, 'status': 'pass', 'message': msg})
+              elif 'failed' in status or 'broken' in status:
+                  results.append({'name': name, 'status': 'fail', 'message': msg})
+              elif 'skipped' in status:
+                  results.append({'name': name, 'status': 'skip', 'message': msg})
+          except: pass
+      overall = 'pass' if all(r.get('status')=='pass' for r in results) else 'fail'
+      with open('report/smoke_test_status.json','w',encoding='utf-8') as f:
+          json.dump({'status': overall, 'results': results}, f, ensure_ascii=False, indent=2)
+      "
   artifacts:
     when: always
     paths:
@@ -43,18 +76,96 @@ smoke_test:
   tags:
     - api
 
-# ③ 企微通知
+# ============================================================
+# ③ 自动部署（仅 main 分支）
+# ============================================================
+deploy:
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  before_script:
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+  script:
+    - |
+      mkdir -p report
+      ssh -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" << 'SSH_SCRIPT'
+      set -e
+
+      DEPLOY_DIR="/opt/pr_study"
+      BACKEND_DIR="${DEPLOY_DIR}/platform/backend"
+      FRONTEND_DIR="${DEPLOY_DIR}/platform/frontend"
+      VENV_BIN="${DEPLOY_DIR}/venv/bin"
+      NOW=$(date '+%Y-%m-%d %H:%M:%S')
+
+      echo "[${NOW}] ===== 开始部署 ====="
+      echo "[${NOW}] 分支: ${CI_COMMIT_REF_NAME}  提交: ${CI_COMMIT_SHORT_SHA}"
+
+      # 1. Git pull 更新代码
+      cd "${DEPLOY_DIR}"
+      git fetch origin
+      git checkout "${CI_COMMIT_REF_NAME}" || git checkout -b "${CI_COMMIT_REF_NAME}"
+      git pull origin "${CI_COMMIT_REF_NAME}"
+
+      # 2. 安装 / 更新后端依赖
+      cd "${BACKEND_DIR}"
+      "${VENV_BIN}/pip" install --upgrade pip -q
+      "${VENV_BIN}/pip" install -r requirements.txt -q
+
+      # 3. 构建前端
+      cd "${FRONTEND_DIR}"
+      rm -rf node_modules package-lock.json
+      npm install --legacy-peer-deps
+      npm run build
+      mkdir -p "${BACKEND_DIR}/static/dist"
+      rm -rf "${BACKEND_DIR}/static/dist"/*
+      cp -r dist/* "${BACKEND_DIR}/static/dist"/
+      echo "[${NOW}] 前端构建完成"
+
+      # 4. 重载并重启服务（service 文件已在虚拟机中预配置）
+      systemctl daemon-reload
+      systemctl enable pr_study
+      systemctl restart pr_study
+      sleep 3
+      systemctl status pr_study --no-pager || true
+
+      echo "[$(date '+%Y-%m-%d %H:%M:%S')] ===== 部署完成 ====="
+      SSH_SCRIPT
+      echo '{"status":"pass","message":"服务已部署，请访问 http://172.16.18.55:10086/ 获取服务"}' > report/deploy_status.json
+  after_script:
+    - |
+      if [ "$CI_JOB_STATUS" != "success" ]; then
+        echo '{"status":"fail","message":"部署失败，请检查流水线日志"}' > report/deploy_status.json
+      fi
+  artifacts:
+    when: always
+    paths:
+      - report/
+    expire_in: 7 days
+  needs:
+    - smoke_test
+  tags:
+    - api
+  environment:
+    name: production
+    url: http://172.16.18.55:10086/
+  variables:
+    GIT_STRATEGY: none
+
+# ============================================================
+# ④ 企微通知（始终执行，不依赖前三个阶段）
+# ============================================================
 notify:
   stage: notify
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH =~ /^feat|bugfix|hotfix\//
   script:
     - python3 notify.py
-  needs:
-    - job: smoke_test
-      optional: true
+  dependencies:
+    - lint
+    - smoke_test
+    - deploy
   tags:
     - api

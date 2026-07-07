@@ -3,17 +3,13 @@
 """
 GitLab CI 企微通知脚本（企业微信群机器人）
 
-参考飞书/阿里/腾讯内部通知风格，包含：
-- 流水线基本信息
-- 测试结果统计（通过/失败/跳过）
-- 失败用例明细（最多 5 条，含错误信息）
-- 流水线链接
-- @ 提及（可选）
+格式要求：
+- lint pass/fail：代码检查环节（lint）pass / fail
+- smoke_test pass/fail：order1新建 pass / fail，失败原因：XXX
+- deploy pass：服务已部署，请访问 http://172.16.18.55:10086/ 获取服务
+- deploy fail：部署失败，请检查流水线日志
 
-使用方式：
-1. 在 GitLab 项目 Settings > CI/CD > Variables 中配置：
-   - WECOM_WEBHOOK_URL：企业微信群机器人的 webhook 地址（完整 URL，含 key）
-   - 可选：WECOM_MENTIONED_LIST：被提及的用户手机号列表，逗号分隔，如 "13800000000,13900000000"
+所有阶段无论通过与否都必须通知。
 """
 
 import json
@@ -27,19 +23,32 @@ def get_env(name, default=""):
     return os.environ.get(name, default)
 
 
-def read_test_summary():
-    """读取 conftest.py 写入的测试摘要"""
-    summary_path = "report/allure-results/test_summary.json"
-    if not os.path.exists(summary_path):
-        return None
+def read_json(path, default=None):
+    if not os.path.exists(path):
+        return default
     try:
-        with open(summary_path, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
-        return None
+        return default
 
 
-def truncate(text, max_len=120):
+def read_lint_status():
+    """读取 lint 状态：{status, message}"""
+    return read_json("report/lint_status.json", {"status": "unknown", "message": ""})
+
+
+def read_smoke_test_status():
+    """读取 smoke_test 状态：{status, results: [{name, status, message}]}"""
+    return read_json("report/smoke_test_status.json", {"status": "unknown", "results": []})
+
+
+def read_deploy_status():
+    """读取 deploy 状态：{status, message}"""
+    return read_json("report/deploy_status.json", {"status": "unknown", "message": ""})
+
+
+def truncate(text, max_len=300):
     if not text:
         return ""
     text = text.replace("\n", " ").strip()
@@ -66,107 +75,125 @@ def build_message():
     commit_msg = get_env("CI_COMMIT_MESSAGE", "N/A")
     job_name = get_env("CI_JOB_NAME", "N/A")
     runner = get_env("CI_RUNNER_DESCRIPTION", "N/A")
-    project_url = get_env("CI_PROJECT_URL", "")
-    project_name = get_env("CI_PROJECT_NAME", "")
-    allure_report_url = get_env("ALLURE_REPORT_URL", "").strip()
+    project_name = get_env("CI_PROJECT_NAME", "PR Study")
+    ci_job_status = get_env("CI_JOB_STATUS", "").lower()
 
     commit_msg_short = truncate_commit(commit_msg, 60)
 
-    summary = read_test_summary()
-    has_summary = summary is not None
+    # 读取三个阶段状态
+    lint = read_lint_status()
+    smoke = read_smoke_test_status()
+    deploy = read_deploy_status()
 
-    job_status = get_env("CI_JOB_STATUS", "").lower()
-    pipeline_status = get_env("CI_PIPELINE_STATUS", "").lower()
-    ci_status = job_status or pipeline_status or "unknown"
+    # 前端展示 emoji
+    icon_map = {
+        "pass": "✅",
+        "fail": "❌",
+        "skip": "⏭️",
+        "unknown": "⚠️",
+    }
 
-    if summary is None:
-        if ci_status in ("success", ""):
-            overall_status = "success"
-        else:
-            overall_status = ci_status
-    elif summary.get("failed", 0) > 0:
-        overall_status = "failed"
-    else:
-        overall_status = ci_status
-
-    status_icon = {"success": "✅", "failed": "❌", "canceled": "⚠️", "warning": "⚠️"}.get(
-        overall_status, "❓"
+    # 最终流水线状态
+    all_pass = (
+        lint.get("status") == "pass"
+        and smoke.get("status") == "pass"
+        and deploy.get("status") == "pass"
     )
+    any_fail = (
+        lint.get("status") == "fail"
+        or smoke.get("status") == "fail"
+        or deploy.get("status") == "fail"
+    )
+    if ci_job_status == "canceled":
+        final_status = "canceled"
+    elif all_pass:
+        final_status = "success"
+    elif any_fail:
+        final_status = "failed"
+    else:
+        final_status = "warning"
+
+    status_icon = icon_map.get(final_status, "❓")
     status_label = {
-        "success": "成功",
-        "failed": "失败",
+        "success": "全部成功",
+        "failed": "存在失败",
         "canceled": "已取消",
-        "warning": "警告",
-    }.get(overall_status, overall_status)
+        "warning": "部分异常",
+    }.get(final_status, final_status)
 
     lines = []
-    lines.append(f"## {status_icon} 接口自动化测试报告")
+    lines.append(f"## {status_icon} 流水线通知 #{pipeline_id}  [{status_label}]")
     lines.append("")
 
-    if pipeline_url:
-        pipeline_link = f"[{pipeline_id}]({pipeline_url})"
-    else:
-        pipeline_link = str(pipeline_id)
-
-    job_link = f"[{job_name}]({job_url})" if job_url else job_name
-
+    # 基本信息
     lines.append(f"| 项目 | 内容 |")
     lines.append(f"|------|------|")
     lines.append(f"| **项目** | {project_name} |")
     lines.append(f"| **分支** | `{branch}` |")
     lines.append(f"| **提交** | `{commit_sha}` {commit_msg_short} |")
-    lines.append(f"| **流水线** | {pipeline_link} |")
-    lines.append(f"| **任务** | {job_link} |")
-    lines.append(f"| **Runner** | {runner} |")
+    if pipeline_url:
+        lines.append(f"| **流水线** | [{pipeline_id}]({pipeline_url}) |")
     lines.append("")
 
-    if has_summary:
-        total = summary.get("total", 0)
-        passed = summary.get("passed", 0)
-        failed = summary.get("failed", 0)
-        skipped = summary.get("skipped", 0)
-        pass_rate = f"{passed / total * 100:.1f}%" if total > 0 else "N/A"
-
-        lines.append(f"### 📊 测试结果")
-        lines.append(f"- **总计**：{total}")
-        lines.append(f"- **通过**：{passed} ✅")
-        lines.append(f"- **失败**：{failed} ❌")
-        lines.append(f"- **跳过**：{skipped} ⏭️")
-        lines.append(f"- **通过率**：{pass_rate}")
-        lines.append("")
-
-        if summary.get("errors"):
-            lines.append("### ❌ 失败用例明细")
-            lines.append("")
-            for idx, err in enumerate(summary["errors"][:5], 1):
-                name = err.get("name", "Unknown")
-                message = truncate(err.get("message", ""), 300)
-                lines.append(f"{idx}. **`{name}`**")
-                lines.append(f"   > {message}")
-                lines.append("")
+    # ---- 1. lint ----
+    lint_status = lint.get("status", "unknown")
+    lint_icon = icon_map.get(lint_status, "⚠️")
+    lint_msg = lint.get("message", "")
+    if lint_status == "pass":
+        lines.append(f"{lint_icon} **lint**  {lint_msg}")
+    elif lint_status == "fail":
+        lines.append(f"{lint_icon} **lint**  {lint_msg}")
     else:
-        lines.append("> ⚠️ 未找到测试结果摘要，可能测试阶段未正常执行。")
-        lines.append("")
+        lines.append(f"{lint_icon} **lint**  未获取到 lint 执行结果")
+    lines.append("")
 
+    # ---- 2. smoke_test ----
+    smoke_status = smoke.get("status", "unknown")
+    smoke_icon = icon_map.get(smoke_status, "⚠️")
+    results = smoke.get("results", [])
+    if results:
+        for r in results:
+            name = r.get("name", "unknown")
+            rs = r.get("status", "unknown")
+            ri = icon_map.get(rs, "⚠️")
+            rm = r.get("message", "")
+            # 提取用例名（取最后一段，如 test_order_new -> order_new）
+            marker = name.split("/")[-1].replace("test_", "").replace("_", "")
+            label = marker if marker else name
+            if rs == "pass":
+                lines.append(f"{ri} **{label}**  {label} pass")
+            elif rs == "fail":
+                reason = f"，失败原因：{truncate(rm, 300)}" if rm else ""
+                lines.append(f"{ri} **{label}**  {label} fail{reason}")
+            elif rs == "skip":
+                lines.append(f"{ri} **{label}**  {label} skip")
+    elif smoke_status == "unknown":
+        lines.append(f"{smoke_icon} **smoke_test**  未获取到测试结果")
+    else:
+        lines.append(f"{smoke_icon} **smoke_test**  smoke_test {smoke_status}")
+    lines.append("")
+
+    # ---- 3. deploy ----
+    deploy_status = deploy.get("status", "unknown")
+    deploy_icon = icon_map.get(deploy_status, "⚠️")
+    deploy_msg = deploy.get("message", "")
+    if deploy_status == "pass":
+        lines.append(f"{deploy_icon} **{deploy_msg}**")
+    elif deploy_status == "fail":
+        lines.append(f"{deploy_icon} **{deploy_msg}**")
+    elif deploy_status == "unknown":
+        lines.append(f"{deploy_icon} **deploy**  未获取到部署结果")
+    else:
+        lines.append(f"{deploy_icon} **deploy**  部署状态：{deploy_status}")
+    lines.append("")
+
+    # 链接
     links = []
-    if allure_report_url:
-        links.append(f"[📋 Allure 报告]({allure_report_url})")
     if pipeline_url:
         links.append(f"[查看流水线]({pipeline_url})")
-    if project_url:
-        links.append(f"[查看项目]({project_url})")
-    if allure_report_url:
-        links.append(f"[📋 查看Allure报告]({allure_report_url})")
+    links.append(f"[服务地址](http://172.16.18.55:10086/)")
     if links:
-        lines.append(" ".join(links))
-        lines.append("")
-
-    mentioned_list = get_env("WECOM_MENTIONED_LIST", "").strip()
-    if mentioned_list:
-        users = [u.strip() for u in mentioned_list.split(",") if u.strip()]
-        mentions = "".join([f"@<font color=\"comment\">{u}</font> " for u in users])
-        lines.append(f"{mentions}")
-        lines.append("")
+        lines.append(" | ".join(links))
 
     return {
         "msgtype": "markdown",
@@ -182,7 +209,6 @@ def send_notification(webhook_url, payload):
     req = urllib.request.Request(
         webhook_url, data=data, headers=headers, method="POST"
     )
-
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return resp.status, resp.read().decode("utf-8")
@@ -196,13 +222,14 @@ def main():
     webhook_url = get_env("WECOM_WEBHOOK_URL", "").strip()
 
     if not webhook_url:
-        print("⚠️ 未配置 WECOM_WEBHOOK_URL 环境变量，跳过企微通知")
+        print("⚠️ 未配置 WECOM_WEBHOOK_URL，跳过企微通知")
         sys.exit(0)
 
     if not webhook_url.startswith("https://"):
         print(f"⚠️ WECOM_WEBHOOK_URL 格式异常：{webhook_url}")
         sys.exit(0)
 
+    # 无论状态如何，都发送通知
     payload = build_message()
     status, body = send_notification(webhook_url, payload)
 
