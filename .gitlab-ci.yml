@@ -89,13 +89,11 @@ deploy:
   before_script:
     - eval $(ssh-agent -s)
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    # 复制文件变量到自定义临时文件，修复权限
-    - cp "$SSH_PRIVATE_KEY" /tmp/deploy_ssh_key
-    - chmod 600 /tmp/deploy_ssh_key
-    # 加载权限合规的私钥文件
-    - ssh-add /tmp/deploy_ssh_key
-    # 清理临时密钥文件
-    - rm -f /tmp/deploy_ssh_key
+    # 清洗换行、空白行，生成合规临时私钥
+    - tr -d '\r' < "$SSH_PRIVATE_KEY" | sed '/^\s*$/d' > /tmp/deploy_key
+    - chmod 600 /tmp/deploy_key
+    - ssh-add /tmp/deploy_key
+    - rm -f /tmp/deploy_key
     - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
   script:
     - |
