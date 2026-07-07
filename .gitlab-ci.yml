@@ -108,12 +108,10 @@ deploy:
 
       # 1. Git pull 更新代码
       cd "$DEPLOY_DIR"
-      # 清空本地所有脏文件，避免切换分支冲突
       git reset --hard HEAD
       git fetch origin
-      git checkout "$CI_COMMIT_BRANCH" || git checkout -b "$CI_COMMIT_BRANCH"
-      # 使用rebase拉取，自动化无交互
-      git pull --rebase origin "$CI_COMMIT_BRANCH"
+      git checkout main
+      git pull --rebase origin main
 
       # 2. 安装 / 更新后端依赖
       cd "${BACKEND_DIR}"
