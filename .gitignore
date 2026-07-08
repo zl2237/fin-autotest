@@ -54,3 +54,6 @@ platform/frontend/node_modules/
 # 打包产物（如果不想上传dist）
 platform/frontend/dist
 platform/backend/static/dist
+
+# 数据库文件
+platform/backend/data
